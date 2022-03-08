@@ -1,0 +1,123 @@
+globalStore.thresholds = {theta: data["theta"][0], theta_likely : 0.5}
+var vars = [["S", "-S"], ["E", "-E"], ["C", "-C"]]
+var utterances = make_utterances(vars, false)
+
+var verbose = data["verbose"][0]
+var prior_r_ind = data["prior_r_ind"][0]
+var prior_pe = data["prior_pe"][0]
+var utt = data["utt"][0]
+var LEVEL_MAX = data["level_max"] ? data["level_max"][0] : "PL"
+globalStore.alpha = data["alpha"][0]
+
+if(verbose){
+  display("alpha:" + globalStore.alpha)
+  display('all utterances:' + utterances.length)
+  display("prior P(E):" + prior_pe)
+  display("listener hears utterance: " + utt)
+}
+
+// Probabilities ----------------------------------------------------------------
+// Independent net
+var marginals_ps = [0.91]
+var priors_pe = [prior_pe]
+var probabilities_ind = _.flatten(mapIndexed(function(i, ps){
+  var probs = mapIndexed(function(j, pe) {
+    return {"p_clothes": {"S": 0.5, "-S": 0},
+            "p_exam": pe,
+            "p_skiing": ps,
+            "bn_id": "bn" + (i * priors_pe.length + j) + "_ind"}
+  }, priors_pe)
+  return(_.flatten(probs))
+}, marginals_ps))
+
+// Dependent net
+var probabilities_dep = mapIndexed(function(i, pe) {
+  return({"p_clothes": {"S": 0.5, "-S": 0},
+          "p_exam": pe,
+          "p_skiing": {"E": 1, "-E": 0},
+          "bn_id": "bn" + (probabilities_ind.length + i) + "_dep"})
+}, priors_pe)
+var probabilities = probabilities_ind.concat(probabilities_dep)
+
+var ids_r_ind = map(function(i){return "bn"+i+"_ind"}, _.range(0, probabilities_ind.length))
+var ids_r_dep = map(function(i){return "bn"+(i+probabilities_ind.length)+"_dep"}, _.range(0, probabilities_dep.length))
+var ids_bayes_nets = ids_r_ind.concat(ids_r_dep)
+var r_graphs = {"ind": "E || S>C", "dep":"E>S>C"}
+var prior_bn_ids = Categorical(
+  {"vs": ids_bayes_nets,
+   "ps": repeat(ids_r_ind.length, function(){return(prior_r_ind * (1/ids_r_ind.length))}).concat(
+         repeat(ids_r_dep.length, function(){return((1-prior_r_ind) * (1/ids_r_dep.length))}))
+  }
+)
+
+// States ----------------------------------------------------------------
+var joint_probs = function(token, bn_id){
+  var probs = filter(function(bn) {
+    return(bn.bn_id == bn_id)
+  }, probabilities)[0]
+  var p_e = token.indexOf("-E") != -1 ? 1-probs["p_exam"] : probs["p_exam"]
+
+  var cs = token.indexOf("-S") != -1 ? probs["p_clothes"]["-S"] : probs["p_clothes"]["S"]
+  var p_cs = token.indexOf("-C") != -1 ? 1-cs : cs
+
+  var se = bn_id.includes("_ind") ? probs["p_skiing"] :
+           token.indexOf("-E") != -1 ? probs["p_skiing"]["-E"] : probs["p_skiing"]["E"]
+  var p_se =  token.indexOf("-S") != -1 ? 1-se : se
+
+  return p_cs * p_se * p_e
+}
+var powerset = get_var_powerset(vars, false)
+var var_combinations_len3 = filter(function(tokens){tokens.length==3}, powerset)
+
+var build_table_distr = cache(function(bn_id){
+  var tokens_active = var_combinations_len3
+  var tokens_active_str = map(function(elems){elems.join("")}, tokens_active)
+
+  return Infer({model:function(){
+    var arr = map(function(elems){joint_probs(elems, bn_id)}, tokens_active_str)
+    return categorical({vs:tokens_active_str, ps:arr})
+  }})
+})
+
+var get_bn = function(bn_id){
+  var Table = build_table_distr(bn_id)
+  var rel = bn_id.includes("_dep") ? "dep" : "ind"
+  var bn = {"bn_id": bn_id, "r": rel, "table": Table, "r_graph": r_graphs[rel]}
+  return bn
+}
+
+var state_prior = Infer({model:function(){
+  var bn_id = sample(prior_bn_ids)
+  return get_bn(bn_id)
+}})
+
+globalStore.state_prior = state_prior
+
+// // Utterances ----------------------------------------------------
+var utterances = ["S", "E > S", "likely S"]
+//remove utterances without corresponding state
+var all_states = state_prior.support()
+var utts_to_remove = filter(function(u){
+  !any(function(s){meaning(u, s["table"])}, all_states)
+}, utterances)
+var utterances = filter(function(u){utts_to_remove.indexOf(u) == -1}, utterances)
+globalStore.utterances = utterances
+
+if(verbose){
+  display('# utts without corresponding state: ' + utts_to_remove.length)
+  display('# included utterances: ' + (globalStore.utterances).length)
+}
+
+// Run from R ----------------------------------------------------------------
+var prior = state_prior
+var supp = prior.support()
+var ll = literal_listener(utt)
+var pl = listener(utt)
+
+var s = supp[1]
+var speaker = speaker(s, false)
+// object to return
+var distributions = {"PL": pl, "LL": ll, "prior": prior,
+                     "utts": globalStore.utterances, "bns": supp,
+                     "speaker": speaker, "speaker_s": s}
+distributions

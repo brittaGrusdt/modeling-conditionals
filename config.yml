@@ -1,0 +1,148 @@
+# dont use same fields in different sections as they would get overwritten
+default:
+  alpha: !expr c(3)
+  theta: !expr c(0.9)
+  n_forward_samples: 10000
+  seed_webppl: !expr as.numeric(Sys.time())
+  packages:  !expr c("./node_modules/conditionalsHelpers",
+                     "./node_modules/conditionalsDefault")
+  save: true
+  add_accept_conditions: true
+  verbose: true
+  model_path: "./model/default-model/default-model.wppl"
+  utts_fn: "utterances.rds"
+
+sweep:
+  alpha: !expr c(1, 3, 5, 10)
+  theta: !expr c(0.9, 0.95, 0.975)
+  verbose: FALSE
+
+targets_my_config:
+  base_dir: "./data/default-model/my-config"
+
+targets_paper_resubmission:
+  base_dir: "./data/default-model/paper-resubmission-config"
+
+targets_paper_config:
+  base_dir: "./data/default-model/paper-config"
+
+# Douven examples
+sundowners:
+  model_path: "./model/douven-examples/sundowners.wppl"
+  utt: "R > -S"
+  alpha: 3
+  prior_rain: !expr c(0.5)
+  condition_on: !expr NA
+  level_max: "PL"
+  add_accept_conditions: false
+  target_dir: "./data/douven-examples"
+  target: "./data/douven-examples/results-sundowners.rds"
+  target_fn: "results-sundowners.rds"
+  target_params: "./data/douven-examples/params-sundowners.rds"
+  target_vois: "results-sundowners-voi.rds"
+  tables_fn: "tables-sundowners"
+  
+skiing:
+  model_path: "./model/douven-examples/skiing.wppl"
+  utt: "E > S"
+  alpha: 1
+  prior_pe: 0.2
+  prior_r_ind: 0.5
+  evidence: "C"
+  condition_on: !expr c("C")
+  level_max: "PL"
+  add_accept_conditions: false
+  target_dir: "./data/douven-examples"
+  target: "./data/douven-examples/results-skiing.rds"
+  target_fn: "results-skiing.rds"
+  target_params: "./data/douven-examples/params-skiing.rds"
+  target_vois: "results-skiing-voi.rds"
+  tables_fn: "tables-skiing"
+  
+garden_party:
+  model_path: "./model/douven-examples/garden_party.wppl"
+  utt: "D > G"
+  alpha: 3
+  prior_pd: 0.5
+  prior_r_ind: 0.5
+  evidence: "S"
+  condition_on: !expr c("S")
+  level_max: "PL"
+  add_accept_conditions: FALSE
+  target_dir: "./data/douven-examples"
+  target: "./data/douven-examples/results-gardenParty.rds"
+  target_fn: "results-gardenParty.rds"
+  target_params: "./data/douven-examples/params-gardenParty.rds"
+  target_vois: "results-gardenParty-voi.rds"
+  tables_fn: "tables-gardenParty"
+
+
+## 2. Level configurations ##
+# @arg utt: 
+#   if set to "p_delta" or "p_rooij", respective value must be
+#   large (see in webppl file) for all states given to the speaker,
+#   if set to "" no condition, just sampled from prior as usual
+speaker:
+  level_max: "speaker"
+  utt: ""
+  fn_suffix: "speaker"
+  n_samples: 10000 # bns sampled from prior
+
+
+# speaker given certain condition,
+# e.g. speaker only gets states where utt is applicable
+# (use utt:"" for no condition) 
+speaker_literal:
+  level_max: "speaker"
+  utt: "A > C" #condition s.t. only states where utt is true are considered
+  n_samples: 10000 # bns sampled from prior
+  fn_suffix: "speaker-literal"
+
+speaker_p_rooij:
+  level_max: "speaker"
+  utt: "p_rooij"
+  fn_suffix: "speaker-p_rooij-large"
+  n_samples: 10000 # bns sampled from prior
+
+# speaker only sees states where she is un/certain about A and about C
+speaker_uncertain:
+  inherits: speaker
+  fn_suffix: "speaker-uncertain"
+  utt: "uncertainAandC"
+  n_samples: 10000
+
+speaker_certain:
+  inherits: speaker
+  fn_suffix: "speaker-certain"
+  utt: "certainAandC"
+  n_samples: 10000
+
+speaker_uncertain_certain:
+  inherits: speaker
+  fn_suffix: "speaker-unc-cert"
+  utt: "unc-cert"
+  n_samples: 10000
+
+prior:
+  level_max: "prior"
+  utt: ""
+  fn_suffix: "prior"
+
+priorN:
+  level_max: "priorN"
+  utt: ""
+  n_samples: 10000
+  fn_suffix: "priorN"
+  
+ll:
+  level_max: "LL"
+  utt: "A > C"
+  fn_suffix: "prior-ll"
+
+pl:
+  level_max: "PL"
+  utt: "A > C"
+  fn_suffix: "prior-ll-pl"
+
+# there needs to be 1 blank final line!
+

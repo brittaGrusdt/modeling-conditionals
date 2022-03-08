@@ -1,0 +1,127 @@
+var theta = 0.9
+var alpha = 1
+var states = [
+  {'table': Categorical({vs: ["AC", "A-C", "-AC", "-A-C"],
+                         ps: [0.81, 0.09, 0.09, 0.01]}),
+   'bn_id': 's1'
+  },
+  {'table': Categorical({vs: ["AC", "A-C", "-AC", "-A-C"],
+                         ps: [0.45, 0.05, 0.05, 0.45]}),
+   'bn_id': 's2'
+  },
+  {'table': Categorical({vs: ["AC", "A-C", "-AC", "-A-C"],
+                         ps: [0.25, 0.25, 0.25, 0.25]}),
+   'bn_id': 's3'
+  }
+]
+var utterances = ["likely C", "A > C", "C"]
+
+// helper functions
+var intersect_arrays = function(arrays){
+  return filter(function(m){
+          var m_in_all_lists = map(function(idx){arrays[idx].indexOf(m) != -1},
+                                  _.range(1,arrays.length))
+          return sum(m_in_all_lists)==m_in_all_lists.length
+    }, arrays[0])
+}
+
+var marginal = cache(function(Table, variables){
+  var tokens = Table.support()
+  var all_x = map(function(v){
+    v.indexOf("-") != -1 ? filter(function(k){k.indexOf(v) != -1}, tokens) :
+                           filter(function(k){k.indexOf("-"+v) == -1}, tokens)
+  }, variables)
+  var xs = intersect_arrays(all_x)
+
+  return reduce(function(x, acc){acc + Math.exp(Table.score(x))}, 0, xs)
+})
+
+var utterance_probs = cache(function(utterance, Table){
+  if(utterance.indexOf(">") != -1){
+    var components = utterance.split(" > ")
+    var antecedent = components[0].split(" and ").join("")
+    var consequent = components[1].split(" and ").join("")
+    return marginal(Table, [antecedent, consequent]) /
+           marginal(Table, [antecedent])
+  }
+  else if(utterance.includes("likely")){
+    var u = utterance.slice("likely ".length)
+    return marginal(Table, [u])
+  } else if(utterance.includes("and")){
+    var components = utterance.split(" and ")
+    return marginal(Table, components)
+  }
+  else {
+    return marginal(Table, [utterance])
+  }
+})
+
+// Model ---------------------------------------------------------------------
+var Prior = Infer({method: 'enumerate', model: function(){
+    return(uniformDraw(states))
+  }});
+
+var meaning = cache(function(utterance, table){
+ var p = utterance_probs(utterance, table)
+ var assertable =
+  utterance == "" ? true :
+  (utterance.includes('likely') ? p >= 0.5 : p >= theta)
+ // display(utterance + " " + p + " " + u_applicable)
+ return assertable
+})
+
+var Literal_listener = function(utterance) {
+  Infer({method:'enumerate',model: function(){
+    var state = sample(Prior)
+    condition(meaning(utterance, state["table"]))
+    return state
+  }})
+}
+
+var Marginal_LL = cache(function(utterance){
+  marginalize(Literal_listener(utterance), 'table')
+})
+
+var Speaker = function(state, displayU){
+  Infer({method:'enumerate', model: function(){
+    var utterance = uniformDraw(utterances)
+    var LL = Marginal_LL(utterance)
+    var utility = LL.score(state.table)
+    if(displayU && utility != -Infinity){
+      display(utterance + ": " + utility)
+    }
+    factor(alpha * utility)
+    return(utterance)
+    }
+  })
+}
+
+var Pragmatic_listener = function(utterance){
+  return Infer({method:'enumerate', model:function(){
+                  var state = sample(Prior)
+                  var sp = Speaker(state, false)
+                  observe(sp, utterance)
+                  return state
+                }})
+}
+
+display('Prior:');viz(Prior);
+display('Prior:'); viz.table(marginalize(Prior, 'bn_id'))
+
+display('Literal listener: u=A > C')
+viz.table(marginalize(Literal_listener("A > C"), 'bn_id'))
+display('Literal listener: u=C')
+viz.table(marginalize(Literal_listener("C"), 'bn_id'))
+display('Literal listener: u=likely C');
+viz.table(marginalize(Literal_listener("likely C"), 'bn_id'))
+
+display('Speaker: s=s1'); viz.table(Speaker(states[0]))
+display('Speaker: s=s2'); viz.table(Speaker(states[1]))
+display('Speaker: s=s3'); viz.table(Speaker(states[2]))
+
+display('Pragmatic listener: u=A > C')
+viz.table(marginalize(Pragmatic_listener('A > C'), 'bn_id'))
+display('Pragmatic listener: u=C')
+viz.table(marginalize(Pragmatic_listener('C'), 'bn_id'))
+display('Pragmatic listener: u=likely C')
+viz.table(marginalize(Pragmatic_listener('likely C'), 'bn_id'))

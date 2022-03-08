@@ -1,0 +1,128 @@
+//globalStore.thresholds = {t: 0.899, f: 0.0499, theta: data["theta"][0], theta_likely : 0.499}
+globalStore.thresholds = {theta: data["theta"][0], theta_likely : 0.5}
+
+var vars = [["R", "-R"], ["S", "-S"], ["W", "-W"]]
+var utterances = make_utterances(vars, false)
+
+var verbose = data["verbose"][0]
+var LEVEL_MAX = data["level_max"] ? data["level_max"][0] : "PL"
+globalStore.alpha = data["alpha"][0]
+var prior_rain = data["prior_rain"][0]
+var utt = data["utt"][0]
+
+if(verbose){
+  display("alpha:" + globalStore.alpha)
+  display("prior P(R):" + prior_rain)
+  display('all utterances:' + utterances.length)
+  display("listener hears utterance: " + utt)
+}
+
+// Probabilities ----------------------------------------------------------------
+var priors_sundowners = [0.1, 0.9]
+var probabilities_ind = [
+  {"p_r": prior_rain, "p_s": priors_sundowners[0], "bn_id": "bn0_ind"},
+  {"p_r": prior_rain, "p_s": priors_sundowners[1], "bn_id": "bn1_ind"} // a priori most likely
+ ]
+
+var probabilities_dep = [
+  {"p_r": prior_rain,
+   "p_wi": {"R": 1, "-R": 0},
+   "p_s": {"W": 0, "-W": 1},
+   "bn_id": "bn" + probabilities_ind.length + "_dep"}
+ ]
+var probabilities = probabilities_ind.concat(probabilities_dep)
+
+var r_graphs = {"dep": "R > W > S", "ind": "R||S"}
+var prior_bn_ids = Categorical(
+  {"vs": ["bn0_ind", "bn1_ind", "bn2_dep"],
+   "ps": [0.075, 0.85, 0.075]
+  }
+)
+
+// States ----------------------------------------------------------------
+var joint_probs = function(token, bn_id, pr){
+  var probs = filter(function(bn) {
+    return(bn.bn_id == bn_id)
+  }, probabilities)[0]
+  var sw = bn_id.includes("dep") ? (token.indexOf("-W") != -1 ? probs["p_s"]["-W"] : probs["p_s"]["W"]) :
+          probs["p_s"];
+  var p_sw = token.indexOf("-S") != -1 ? 1-sw : sw
+
+  var r = token.indexOf("-R") != -1 ? "-R" : "R"
+  var wr = bn_id.includes("dep") ? probs["p_wi"][r] : 1
+  var p_wr = token.indexOf("-W") != -1 ? 1-wr : wr
+
+  var p_r = token.indexOf("-R") != -1 ? 1-pr : pr
+
+  return p_sw * p_wr * p_r
+}
+
+var powerset = get_var_powerset(vars, false)
+var var_combinations = {"dep": filter(function(tokens){tokens.length==3}, powerset),
+                        "ind": filter(function(tokens){
+                          tokens.length==2 && tokens.indexOf("W") == -1 &&
+                          tokens.indexOf("-W") == -1
+                        }, powerset)}
+
+var build_table_distribution = cache(function(bn_id, p_r){
+  var rel = bn_id.includes("_ind") ? "ind" : "dep"
+  var tokens_active = var_combinations[rel]
+  var tokens_active_str = map(function(elems){elems.join("")}, tokens_active)
+
+  return Infer({model:function(){
+    var arr = map(function(elems){joint_probs(elems, bn_id, p_r)},
+                  tokens_active_str)
+
+    return categorical({vs:tokens_active_str, ps:arr})
+  }})
+})
+
+var uniform_draw_bn = function(bn_id){
+  var Table = build_table_distribution(bn_id, prior_rain)
+  var rel = bn_id.includes("_ind") ? "ind" : "dep"
+  return {"bn_id": bn_id, "r": rel, "table": Table, "r_graph": r_graphs[rel]}
+}
+
+var state_prior = Infer({model:function(){
+  var bn_id = sample(prior_bn_ids)
+  var bn = uniform_draw_bn(bn_id)
+  return bn
+}})
+globalStore.state_prior = state_prior
+
+var utterances = ["R > -S", "-S", "S", "likely S", "likely -S"]
+// check which utterances need to be removed (e.g.because there's no corresponding state)
+var all_states = state_prior.support()
+var utts_to_remove = filter(function(u){
+  !any(function(s){meaning(u,s["table"])}, all_states)
+}, utterances)
+display('# utts without corresponding state: ' + utts_to_remove.length)
+var utterances = filter(function(u){utts_to_remove.indexOf(u) == -1}, utterances)
+map(display, utts_to_remove)
+
+globalStore.utterances = utterances
+display('# included utterances: ' + (globalStore.utterances).length)
+
+// Run from R ----------------------------------------------------------------
+var prior = state_prior
+var ll = literal_listener(utt)
+var pl = listener(utt)
+
+var wrap_ll = function(u){
+  var obj = {"u": u, "LL": literal_listener(u)}
+  obj
+}
+
+var supp = prior.support()
+var s = supp[2]
+var speaker = speaker(s, false)
+
+if(LEVEL_MAX == "LL-all-utts"){
+  var distributions = {"LL": map(wrap_ll, utterances)}
+  distributions
+} else {
+  var distributions = {"PL": pl, "LL": ll, "prior": prior,
+                       "utts": globalStore.utterances, "bns": supp,
+                       "speaker": speaker, "speaker_s": s}
+  distributions
+}
