@@ -14,12 +14,7 @@ var variables = reduce(function(token, acc){
   acc.concat([[token, negate(token)]])
 }, [], globalStore.variables)
 
-var utterances = make_utterances(variables, false)
-if(verbose){
-  display("all utterances:")
-  map(display, utterances)
-  display('# all utterances: ' + utterances.length)
-}
+var utterances = make_utterances(variables, false, data["include_disjunctions"][0])
 
 var all_states = globalStore.state_prior.support()
 if(verbose){
@@ -38,8 +33,6 @@ if(verbose){
 
 var utterances = filter(function(u){utts_to_remove.indexOf(u) == -1}, utterances)
 if(verbose){
-  display("included utterances:")
-  map(display, utterances)
   display('# included utterances: ' + utterances.length)
 }
 
