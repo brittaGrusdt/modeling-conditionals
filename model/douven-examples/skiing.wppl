@@ -18,7 +18,7 @@ if(verbose){
 
 // Probabilities ----------------------------------------------------------------
 // Independent net
-var marginals_ps = [0.91]
+var marginals_ps = [1]
 var priors_pe = [prior_pe]
 var probabilities_ind = _.flatten(mapIndexed(function(i, ps){
   var probs = mapIndexed(function(j, pe) {
