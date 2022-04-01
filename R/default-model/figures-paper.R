@@ -13,9 +13,9 @@ library(xtable)
 source("R/helper-functions.R")
 source("R/default-model/helpers-tables.R")
 
-# target <- "my-config"
-# target <- "paper-config"
+# target <- "test-config"
 target <- "paper-resubmission-config"
+# target <- "with-or"
 
 # seed <- ""
 seed <- "1644922777.24488"
@@ -28,6 +28,7 @@ pars <- paste(alpha, theta, sep="--")
 
 plot_tables = TRUE
 
+theme_set(theme_minimal(base_size=12) + theme(legend.position = "top"))
 # funcitons ---------------------------------------------------------------
 plot_accept_conditions <- function(dat, cond_tex_str){
   data <- dat %>% 
@@ -35,11 +36,11 @@ plot_accept_conditions <- function(dat, cond_tex_str){
                                    as.double(scientific(condition, digits=1)),
                                  T ~ condition),
            r = factor(r, levels = names(LABELS_r)), 
-           level_f = factor(level, levels = names(LABELS_levels)),
+           level_f = factor(level, levels = names(LABELS_sp_levels)),
            r_f = r) 
   # important to use function levels
   levels(data$r_f) = LABELS_r
-  levels(data$level_f) = LABELS_levels
+  levels(data$level_f) = LABELS_sp_levels
   
   plots = list()
   levels = data$level %>% unique()
@@ -49,7 +50,7 @@ plot_accept_conditions <- function(dat, cond_tex_str){
       ggplot(aes(y=condition, x=r)) +
       geom_boxplot(outlier.size = 0.1) +
       facet_wrap(~r_f, scales="free", ncol=4, labeller = label_parsed) +
-      labs(y=TeX(cond_tex_str), x="", title=LABELS_levels[levels[[i]]]) +
+      labs(y=TeX(cond_tex_str), x="", title=LABELS_sp_levels[levels[[i]]]) +
       theme_minimal() +
       theme(axis.ticks.x = element_blank(),
             axis.text.x = element_blank())
@@ -251,13 +252,17 @@ for(par_config in subdirs) {
     mutate(speaker_condition=factor(speaker_condition,
                                     levels=c("certain", "uncertain", "xor")))
   levels(sp.best.conditions.chunked$speaker_condition) <-
-    c("certain" = expression(atop("A certain, C certain")),
-      "uncertain" = expression(atop("A uncertain, C uncertain")),
-      "xor" = expression(atop("A xor C certain")))
+    c("certain" = "(i) A certain, C certain",
+      "uncertain" = "(ii) A uncertain, C uncertain",
+      "xor" = "(iii) A xor C certain")
+  
+  tikz(paste(plot_dir, "speaker_freq_best_un_certain_other.tex", sep=fs), 
+       width = 7.5, height = 2.5, standAlone = FALSE,
+       packages = c("\\usepackage{tikz, amssymb, amsmath}", 
+                    "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
   p = plot_speaker_conditions(sp.best.conditions.chunked)
-  # p
-  ggsave(paste(plot_dir, "speaker_freq_best_un_certain_other.png", sep=fs),
-         p, width=7, height=2.5)
+  p
+  dev.off()
   
   # 1.check A,C uncertain + independent + best utterance is conditional
   # almost true states?
@@ -301,11 +306,11 @@ for(par_config in subdirs) {
   # Figure 3+4 ----------------------------------------------------------------
   data.cp = data_cp_plots(params) 
   cp.relations = data.cp %>% filter(val=="relations")
-  p.probs <- data.cp %>% filter(val=="p") %>% plot_cp_probs()
+  p.probs <- data.cp %>% filter(val=="p") %>% 
+    plot_cp_probs(paste(plot_dir, "cp-evs-probs.tex", sep=fs), w=7, h=2.5)
   p.relations <- cp.relations %>% plot_cp_relations()
   # p.probs
   # p.relations
-  ggsave(paste(plot_dir, "cp-evs-probs.png", sep=fs), p.probs,width=7, height=2.5)
   ggsave(paste(plot_dir, "evs-relations.png", sep=fs), p.relations, width=7, height=2.5)
   
   # Figure 5 ----------------------------------------------------------------
@@ -476,4 +481,19 @@ csv_data %>%
   filter(key == "nb_tables_literal_speaker_cond_other_conditional_best_utt_but_conj_or_lit_assertable") %>% 
   filter(val != 0)
 
+
+
+# conditional vs. or ------------------------------------------------------
+df.or = tables %>% compute_cond_prob("P(C|A)", "p_if") %>% 
+  mutate(p_or = AC + `-AC` + `-A-C`) %>% 
+  mutate(or_true = p_or >= theta, if_true = p_if >= theta) %>% 
+  dplyr::select(bn_id, p_if, p_or, or_true, if_true) %>% ungroup() 
+
+df.or %>% summarize(n_if=sum(if_true), n_or = sum(or_true))
+# when p_if is true, p_or is true as well
+df.or %>% filter(if_true) %>% summarize(s=sum(or_true)/n())
+# when p_or is true, p_if may be false
+df.or %>% filter(or_true) %>% summarize(s=sum(if_true)/n())
+# or is 
+df.or %>% filter(or_true & !if_true)
 

@@ -1,6 +1,5 @@
 globalStore.thresholds = {theta: data["theta"][0], theta_likely : 0.5}
 var vars = [["D", "-D"], ["S", "-S"], ["G", "-G"]]
-var utterances = make_utterances(vars, false)
 
 var verbose = data["verbose"][0]
 var prior_r_ind = data["prior_r_ind"][0]
@@ -11,14 +10,13 @@ globalStore.alpha = data["alpha"][0]
 
 if(verbose){
   display("alpha:" + globalStore.alpha)
-  display('all utterances:' + utterances.length)
   display("prior P(D):" + prior_pd)
   display("listener hears utterance: " + utt)
 }
 
 // Probabilities ----------------------------------------------------------------
 // Independent net
-var marginals_pg = [1]
+var marginals_pg = [0.95]
 var priors_pd = [prior_pd]
 var probabilities_ind = _.flatten(mapIndexed(function(i, pg){
   var probs = mapIndexed(function(j, pd) {
@@ -102,7 +100,6 @@ var all_states = state_prior.support()
 var utts_to_remove = filter(function(u){
   !any(function(s){meaning(u,s["table"])}, all_states)
 }, utterances)
-// map(display, utts_to_remove)
 var utterances = filter(function(u){utts_to_remove.indexOf(u) == -1}, utterances)
 globalStore.utterances = utterances
 

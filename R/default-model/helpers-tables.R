@@ -38,9 +38,7 @@ plot_tables_relations <- function(tables_path, plot_dir, w, h, tables=NA){
     df_meta[[i]] = 
       data.frame(label = tables.evs %>% filter(r == !!r) %>%
                    dplyr::select(-r) %>% as.numeric(),
-                 cell=c(1,2,3,4),
-                 x=rep(0.8, 4), y=rep(200,4)
-                 #lab = c("P(a,c)", "P(a,¬c)", "P(¬a,c)", "P(¬a,¬c)")
+                 cell=c(1,2,3,4), x=rep(0.8, 4), y=rep(200,4)
                 ) %>% 
       mutate(cell = factor(cell))
     if(r == "A || C"){
@@ -59,12 +57,9 @@ plot_tables_relations <- function(tables_path, plot_dir, w, h, tables=NA){
       p <- tbls  %>% group_by(bn_id) %>% 
         ggplot(aes(x=val)) +
         geom_histogram(fill="gray") + 
-        facet_wrap(~cell, ncol = 2, #scales = "free",
-                   # labeller = labeller(cell = c(`AC`="P(a,c)", `A-C`="P(a,¬c)",
-                   #                             `-AC`="P(¬a,c)", `-A-C`="P(¬a,¬c)"))
-                   labeller = label_parsed) +
+        facet_wrap(~cell, ncol = 2, labeller = label_parsed) +
         scale_x_continuous(breaks = scales::pretty_breaks(n = 3)) +
-        labs(x="probability", y="density") +
+        labs(x="probability within states", y="count") +
         theme_minimal() +
         theme(legend.position = "none") +
         ggtitle(LABELS_r[[`r`]]) +

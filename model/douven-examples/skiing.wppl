@@ -1,6 +1,5 @@
 globalStore.thresholds = {theta: data["theta"][0], theta_likely : 0.5}
 var vars = [["S", "-S"], ["E", "-E"], ["C", "-C"]]
-var utterances = make_utterances(vars, false)
 
 var verbose = data["verbose"][0]
 var prior_r_ind = data["prior_r_ind"][0]
@@ -11,7 +10,6 @@ globalStore.alpha = data["alpha"][0]
 
 if(verbose){
   display("alpha:" + globalStore.alpha)
-  display('all utterances:' + utterances.length)
   display("prior P(E):" + prior_pe)
   display("listener hears utterance: " + utt)
 }

@@ -1,6 +1,8 @@
+library(latex2exp)
 library(viridisLite)
 library(yaml)
 
+fs = .Platform$file.sep
 LABELS_R = c(
   "A || C" = expression(paste("A,C independent")),
   "A implies C" = expression(paste(A%->%C)),
@@ -11,6 +13,21 @@ LABELS_R = c(
   "C implies -A" = expression(paste(C%->%A)),
   "-C implies A" = expression(paste(C%->%A)),
   "-C implies -A" = expression(paste(C%->%A))
+)
+LABELS_R_TEX = c(
+  "A || C" = "$A\\indep C$",
+  "A implies C" = "$A\\rightsquigarrow C$",
+  "A implies -C" = "$A\\rightsquigarrow C$",
+  "-A implies C" = "$A\\rightsquigarrow C$",
+  "-A implies -C" = "$A\\rightsquigarrow C$",
+  "C implies A" = "$C\\rightsquigarrow A$",
+  "C implies -A" = "$C\\rightsquigarrow A$",
+  "-C implies A" = "$C\\rightsquigarrow A$",
+  "-C implies -A" = "$C\\rightsquigarrow A$"
+)
+LABELS_cp_probs = c(
+  "P(A|C)" = "$\\mathbb{E}[P^{(s)}(a\\mid c)]$", 
+  "P(-C|-A)" = "$\\mathbb{E}[P^{(s)}(\\neg c \\mid \\neg a)]$"
 )
 LABELS_r = c(
   "A implies C" = parse(text=TeX('$A^+C^+$')),
@@ -23,7 +40,7 @@ LABELS_r = c(
   "-C implies A" = parse(text=TeX('$C^-A^+$')),
   "A || C" = expression(paste("A,C independent"))
 )
-LABELS_levels <- 
+LABELS_sp_levels <-
   c(`prior` = expression(paste("Prior")),
     `literal-speaker` = expression(paste("Literal speaker")),
     `pragmatic-speaker` = expression(paste("Pragmatic speaker")))
@@ -77,11 +94,12 @@ generate_utts <- function(params){
 
 # instead of all different utterances, chunk them into categories (for plotting)
 chunk_utterances <- function(data, utts_kept=c()){
-  levels = c("likely + literal", "conditional", "literal", "conjunction");
+  levels = c("likely + literal", "conditional", "literal", "conjunction", 
+             "disjunction");
   s = paste(utts_kept, collapse="");
   if(str_detect(s, ">") || str_detect(s, "if")){
     levels = c("likely + literal", "other conditional", "literal", "conjunction",
-               utts_kept);
+               "disjunction", utts_kept);
   }
   data = data %>% mutate(
     utterance = case_when(
@@ -89,6 +107,7 @@ chunk_utterances <- function(data, utts_kept=c()){
       startsWith(utterance, "likely") ~ "likely + literal",
       str_detect(utterance, ">") ~ levels[[2]],
       str_detect(utterance, "and") ~ "conjunction",
+      str_detect(utterance, "or") ~ "disjunction",
       TRUE ~ "literal"
     ),
     utterance = str_replace_all(utterance, "-", "¬"),
@@ -169,7 +188,7 @@ expected_val <- function(df_wide, value_str){
   return(evs)
 }
 
-compute_cond_prob <- function(distr_wide, prob){
+compute_cond_prob <- function(distr_wide, prob, name_p=NULL){
   if(prob=="P(C|A)"){
     distr <- distr_wide %>% mutate(p=`AC`/(`AC`+`A-C`))
   } else if(prob=="P(A|C)"){
@@ -190,6 +209,9 @@ compute_cond_prob <- function(distr_wide, prob){
   
   }  else{
     stop("not implemented.")
+  }
+  if(!is.null(name_p)){
+    distr <- distr %>% rename(!!name_p := p)
   }
   return(distr)
 }
@@ -231,19 +253,18 @@ plot_speaker_conditions <- function(data) {
   df <- data %>%
     mutate(p=round(as.numeric(p), 2),
            utterance=as.character(utterance), 
-           r_graph = factor(r_graph, levels = c("A || C", "A implies C", 
-                                                  "C implies A")))
+           r_graph = factor(r_graph, 
+                            levels = c("A || C", "A implies C", "C implies A")))
   p <- df %>%
     ggplot(aes(y=utterance, x=p, fill = r_graph)) +
     geom_bar(stat="identity", 
              position = position_dodge(preserve="single")) +
-    labs(x="proportion", y="best utterance") + theme_minimal() +
-    facet_wrap(~speaker_condition, labeller=label_parsed) +
-    theme(axis.text.y=element_text(), legend.position="top",
-          legend.key.size = unit(0.75,"line"), 
-          ) +
-    scale_fill_viridis(discrete=T, name="causal relation", labels = LABELS_R) +
-    guides(fill=guide_legend(reverse = TRUE))
+    facet_wrap(~speaker_condition) +
+    scale_fill_viridis(discrete=T, name="causal relation $\\mathcal{R}$", labels = LABELS_R_TEX) +
+    theme(axis.text.y=element_text(), legend.key.size = unit(0.75, "line"), 
+          legend.spacing.x = unit(1.25, "line"), panel.spacing = unit(1.5, "lines")) +
+    labs(x = "proportion", y="") +
+    guides(fill=guide_legend(reverse = TRUE, title.position = "left", spacing.x = 1))
   return(p)
 }
 
@@ -253,17 +274,14 @@ data_cp_plots <- function(params, data=NA){
     select(-p_delta, -p_rooij, -p_diff)
   data.wide <- data %>%
     pivot_wider(names_from = "cell", values_from = "val") %>% 
-    compute_cond_prob("P(-C|-A)") %>%  rename(`-C_-A` = p) %>% 
-    compute_cond_prob("P(A|C)") %>% rename(`A_C` = p)
+    compute_cond_prob("P(-C|-A)", name_p = "-C_-A") %>% 
+    compute_cond_prob("P(A|C)", name_p = "A_C")
   
   # Expected values for P(-C|-A) and P(A|C) and for causal nets
   ev_nc_na = data.wide %>% rename(p=`-C_-A`) %>% expected_val("P(-C|-A)")
   ev_a_c = data.wide %>% rename(p=`A_C`) %>% expected_val("P(A|C)") 
   ev_probs <- bind_rows(ev_a_c, ev_nc_na) %>%
-    mutate(level=factor(level, levels=c("PL", "LL", "prior")),
-           p=str_replace_all(p, "-", "¬"), 
-           p=str_replace_all(p, "A", "a"),
-           p=str_replace_all(p, "C", "c")) %>%
+    mutate(level=factor(level, levels=c("PL", "LL", "prior"))) %>% 
     rename(val_type=p) %>% add_column(val="p")
   
   ev_rels = data.wide %>% ungroup() %>% group_by(level, r) %>% 
@@ -281,8 +299,7 @@ plot_cp_relations <- function(cp.relations){
   p.relations <- cp.relations %>% 
     ggplot(aes(y=level, x=ev, fill=val_type)) + 
     geom_bar(position=position_stack(), stat="identity") +
-    scale_fill_manual(name="causal relation", labels=LABELS_r,
-                      values = COLS_r) +
+    scale_fill_manual(name="causal relation", labels=LABELS_r, values=COLS_r) +
     labs(x="Degree of belief", y="") +
     theme_minimal() +
     theme(legend.position="top", legend.key.size = unit(0.75,"line")) +
@@ -290,15 +307,20 @@ plot_cp_relations <- function(cp.relations){
   return(p.relations)
 }
 
-plot_cp_probs <- function(data.cp){
-  p.probs <- data.cp %>% filter(val=="p") %>% 
+plot_cp_probs <- function(dat, fn, w, h){
+  tikz(fn, width = w, height = h, standAlone = FALSE,
+       packages = c("\\usepackage{tikz, amsmath, amssymb}"))
+  p.probs <- dat %>% filter(val=="p") %>% 
     ggplot(aes(y=level, x=ev, fill=val_type)) + 
     geom_bar(position=position_dodge(), stat="identity") +
-    scale_fill_viridis(discrete=TRUE, name="Probability") +
+    scale_fill_viridis(discrete=TRUE, name="value ", labels = LABELS_cp_probs) +
     labs(x="Degree of belief", y="") +
     theme_minimal() +
-    theme(legend.position="top", legend.key.size = unit(0.75,"line")) +
+    theme(legend.position="top", legend.key.size = unit(0.75,"line"),
+          legend.spacing.x = unit(1.25, "line")) +
     guides(fill=guide_legend(reverse = TRUE))
+  p.probs
+  dev.off()
   return(p.probs)
 }
 

@@ -1,8 +1,6 @@
-//globalStore.thresholds = {t: 0.899, f: 0.0499, theta: data["theta"][0], theta_likely : 0.499}
 globalStore.thresholds = {theta: data["theta"][0], theta_likely : 0.5}
 
-var vars = [["R", "-R"], ["S", "-S"], ["W", "-W"]]
-var utterances = make_utterances(vars, false)
+var vars = [["R", "-R"], ["S", "-S"]]
 
 var verbose = data["verbose"][0]
 var LEVEL_MAX = data["level_max"] ? data["level_max"][0] : "PL"
@@ -13,12 +11,11 @@ var utt = data["utt"][0]
 if(verbose){
   display("alpha:" + globalStore.alpha)
   display("prior P(R):" + prior_rain)
-  display('all utterances:' + utterances.length)
   display("listener hears utterance: " + utt)
 }
 
 // Probabilities ----------------------------------------------------------------
-var priors_sundowners = [0.1, 0.9]
+var priors_sundowners = [0.05, 0.95]
 var probabilities_ind = [
   {"p_r": prior_rain, "p_s": priors_sundowners[0], "bn_id": "bn0_ind"},
   {"p_r": prior_rain, "p_s": priors_sundowners[1], "bn_id": "bn1_ind"} // a priori most likely
@@ -26,13 +23,12 @@ var probabilities_ind = [
 
 var probabilities_dep = [
   {"p_r": prior_rain,
-   "p_wi": {"R": 1, "-R": 0},
-   "p_s": {"W": 0, "-W": 1},
+   "p_s": {"R": 0, "-R": 1},
    "bn_id": "bn" + probabilities_ind.length + "_dep"}
  ]
 var probabilities = probabilities_ind.concat(probabilities_dep)
 
-var r_graphs = {"dep": "R > W > S", "ind": "R||S"}
+var r_graphs = {"dep": "R > S", "ind": "R||S"}
 var prior_bn_ids = Categorical(
   {"vs": ["bn0_ind", "bn1_ind", "bn2_dep"],
    "ps": [0.075, 0.85, 0.075]
@@ -43,30 +39,22 @@ var prior_bn_ids = Categorical(
 var joint_probs = function(token, bn_id, pr){
   var probs = filter(function(bn) {
     return(bn.bn_id == bn_id)
-  }, probabilities)[0]
-  var sw = bn_id.includes("dep") ? (token.indexOf("-W") != -1 ? probs["p_s"]["-W"] : probs["p_s"]["W"]) :
-          probs["p_s"];
-  var p_sw = token.indexOf("-S") != -1 ? 1-sw : sw
+  }, probabilities)[0] // just a single remaining value
 
   var r = token.indexOf("-R") != -1 ? "-R" : "R"
-  var wr = bn_id.includes("dep") ? probs["p_wi"][r] : 1
-  var p_wr = token.indexOf("-W") != -1 ? 1-wr : wr
+  var sr = bn_id.includes("dep") ? probs["p_s"][r] : probs["p_s"]
+  var p_sr = token.indexOf("-S") != -1 ? 1-sr : sr
 
   var p_r = token.indexOf("-R") != -1 ? 1-pr : pr
-
-  return p_sw * p_wr * p_r
+  return p_sr * p_r
 }
 
 var powerset = get_var_powerset(vars, false)
-var var_combinations = {"dep": filter(function(tokens){tokens.length==3}, powerset),
-                        "ind": filter(function(tokens){
-                          tokens.length==2 && tokens.indexOf("W") == -1 &&
-                          tokens.indexOf("-W") == -1
-                        }, powerset)}
+var var_combinations = filter(function(tokens){tokens.length==2}, powerset)
 
 var build_table_distribution = cache(function(bn_id, p_r){
   var rel = bn_id.includes("_ind") ? "ind" : "dep"
-  var tokens_active = var_combinations[rel]
+  var tokens_active = var_combinations
   var tokens_active_str = map(function(elems){elems.join("")}, tokens_active)
 
   return Infer({model:function(){
