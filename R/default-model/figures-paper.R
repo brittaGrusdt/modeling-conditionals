@@ -6,6 +6,7 @@ library(grid)
 library(latex2exp)
 library(scales)
 library(tidyverse)
+library(tikzDevice)
 library(unikn)
 library(viridis)
 library(viridisLite)
@@ -419,25 +420,28 @@ for(par_config in subdirs) {
   df.sp_lit_best_not_ifac = speaker.literal.best %>%
     filter(utterance != "utt_A > C") %>% 
     mutate(utterance = str_replace(utterance, "utt_", ""), utt=utterance) %>%
-    chunk_utterances()
+    chunk_utterances() %>% add_graph()
+  
+  tikz(paste(plot_dir, "literal-speaker_deltap_best_not_ac.tex", sep=fs), 
+       width = 7, height = 2.5, standAlone = FALSE,
+       packages = c("\\usepackage{tikz, amssymb, amsmath}", 
+                    "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
+  
   p <- df.sp_lit_best_not_ifac %>% 
     mutate(utterance = as.character(utterance), 
            utterance = case_when(utterance == "conditional" ~ "(other) conditional",
                                  T ~ utterance),
-           utterance = as.factor(utterance)) %>% add_graph() %>% 
+           utterance = as.factor(utterance)) %>%
     ggplot(aes(x=utterance, y=condition, color=r_graph)) + 
-    geom_boxplot(outlier.shape=NA) +
-    geom_point(position=position_jitterdodge(), alpha=0.2) +
-    labs(x="", y=TeX("$\\Delta^{*}  P$")) + theme_minimal() +
-    theme(axis.text.y=element_text(), 
-          legend.position="top",
-          legend.key.size = unit(0.75,"line")) +
-    scale_color_viridis(name="causal relation", discrete=TRUE, labels=LABELS_R)
-  # zoom in for positive values
-  p.best_not_ac = p + coord_cartesian(ylim=c(0,1))
-  # p.best_not_ac
-  ggsave(paste(plot_dir, "literal-speaker_freq_best_not_ac.png", sep=fs),
-         p.best_not_ac, width=7, height=2.5)
+    geom_boxplot() +
+    labs(x="", y="$\\Delta^{*}  P^{(s)}$") +
+    theme(axis.text.y=element_text(), legend.key.size = unit(0.75,"line"),
+          legend.spacing.x = unit(1.25, "line")) +
+    scale_color_viridis(name="causal relation $\\mathcal{R}$", discrete=TRUE,
+                        labels=LABELS_R_TEX) +
+    coord_cartesian(ylim=c(0,1)) # zoom in for positive values
+  p
+  dev.off()
   
   # get ranges
   df.sp_lit_best_not_ifac %>% add_graph() %>% group_by(utterance, r_graph) %>% 
