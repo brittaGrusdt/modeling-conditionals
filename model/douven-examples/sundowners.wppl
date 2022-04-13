@@ -102,8 +102,9 @@ var wrap_ll = function(u){
 }
 
 var supp = prior.support()
-var s = supp[2]
-var speaker = speaker(s, false)
+var speaker_all_states = map(function(s) {
+  return {"speaker": speaker(s, false), "bn_id": s["bn_id"]}
+}, supp)
 
 if(LEVEL_MAX == "LL-all-utts"){
   var distributions = {"LL": map(wrap_ll, utterances)}
@@ -111,6 +112,6 @@ if(LEVEL_MAX == "LL-all-utts"){
 } else {
   var distributions = {"PL": pl, "LL": ll, "prior": prior,
                        "utts": globalStore.utterances, "bns": supp,
-                       "speaker": speaker, "speaker_s": s}
+                       "speaker": speaker_all_states}
   distributions
 }

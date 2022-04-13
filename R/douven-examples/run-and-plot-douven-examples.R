@@ -8,7 +8,7 @@ source("R/helper-functions.R")
 source("R/helpers-webppl.R")
 
 theme_set(theme_minimal(base_size=12) + theme(legend.position = "top"))
-read_data = FALSE
+read_data = TRUE
 
 # Run Model ---------------------------------------------------------------
 get_douven_data <- function(params, read = TRUE){
@@ -119,6 +119,19 @@ params.sundowners <- configure("config.yml", c("sundowners"))
 sundowners <- get_douven_data(params.sundowners, read = read_data)
 sundowners.results <- sundowners$data
 sundowners.bns <- sundowners$bns
+
+sundowners.speaker = sundowners$all$speaker %>% 
+  unnest(c(speaker.probs, speaker.support)) %>% 
+  rename(prob = speaker.probs, u = speaker.support) %>% 
+  add_column(level = "speaker")
+
+sundowners.surprise_u = left_join(sundowners.speaker, 
+          sundowners.results %>% filter(level == "prior") %>% 
+            rename(prior_bn_id = prob) %>% dplyr::select(bn_id, prior_bn_id))
+
+sundowners.surprise_u %>% group_by(u) %>% 
+  summarize(surprise_u = sum(prob * prior_bn_id))
+
 
 sundowners.bns_marginal_r = sundowners.bns %>% get_marginal(c("R")) %>% 
   add_column(example="sundowners")
