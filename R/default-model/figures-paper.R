@@ -27,6 +27,7 @@ alpha <- 3
 pars <- paste(alpha, theta, sep="--")
 # pars <- "all"
 
+#plot_tables = FALSE
 plot_tables = TRUE
 
 theme_set(theme_minimal(base_size=12) + theme(legend.position = "top"))
@@ -99,7 +100,7 @@ for(par_config in subdirs) {
 
   plot_dir = params$plot_dir
   
-  # Figure 1 ----------------------------------------------------------------
+  # Figure 2 ----------------------------------------------------------------
   tables = data %>% filter(level == "prior") %>% 
     ungroup() %>% dplyr::select(r, relation, bn_id, cell, val) %>% 
     group_by(bn_id) %>% pivot_wider(names_from="cell", values_from="val") %>% 
@@ -141,7 +142,8 @@ for(par_config in subdirs) {
   tbls.utts.tex = xtable(df.tbls_utts, digits=c(0,0,0,0,0,0))
   if(par_config == "3--0.9") print(tbls.utts.tex, include.rownames = FALSE)
   
-  # Fig.Appendix 
+
+  # Fig.14 Appendix  --------------------------------------------------------
   # tables where combined conditional 'A->C and ¬A->C' is assertable
   # vs. tables where 'C' is assertable
   literal_combined_ifs = tables %>%
@@ -164,53 +166,71 @@ for(par_config in subdirs) {
     add_column(utterance = "C")
   
   df.literal <- bind_rows(literal_combined_ifs, literal_c) %>% 
-    add_graph() %>% group_by(relation, utterance) %>% 
+    add_graph() %>% group_by(r_graph, utterance) %>% 
     summarize(n=sum(n), ratio=sum(ratio), .groups = "drop_last") %>% 
     mutate(utterance = factor(utterance, levels = c("C", "combined ifs")))
   
-  p.combined_ifs = df.literal %>% ggplot(aes(x=relation, y=n)) + 
-    geom_bar(aes(fill=utterance), stat="identity", position=position_dodge()) + 
-    theme_minimal() +
-    theme(legend.position="top") +
-    scale_x_discrete(labels = function(label) parse(text=label)) + 
-    labs(x="causal relation", 
-         y = paste(strwrap("Number of states", 
-                           width=28), collapse="\n")) +
-    scale_fill_viridis(discrete=TRUE,
-      name = "assertable utterance", option="D",
-      labels = c(C="C", 
-                 `combined ifs`= 
-                   expression((A%->%C)~symbol("\331")~(symbol("\330")~A%->%C))))
+  p.combined_ifs = df.literal %>% 
+    ggplot(aes(x = r_graph, y = n, fill = utterance, color = utterance)) + 
+    geom_bar_pattern(
+      aes(pattern = utterance, pattern_linetype = utterance), 
+      stat = "identity", position = position_dodge(),
+      pattern_density = 0.1, pattern_colour = 'white', 
+      pattern_fill = 'white', pattern_key_scale_factor = 0.25
+    ) +
+    scale_x_discrete(labels = LABELS_R_TEX) +
+    scale_pattern_linetype_discrete(name = "assertable utterance") +
+    scale_pattern_discrete(name = "assertable utterance") +
+    scale_fill_brewer(name = "assertable utterance", palette = "Set2") +
+    scale_color_brewer(name = "assertable utterance", palette = "Set2") +
+    theme(legend.spacing.x = unit(1.25, "line")) + #, legend.key.size = unit(1, "cm")) +
+    labs(x="causal relation $R$", y = 'Number of states')
+    
+  tikz(paste(plot_dir, "combined-ifs-c-true.tex", sep=fs), 
+       width = 7.5, height = 2.5, standAlone = FALSE,
+       packages = c("\\usepackage{tikz, amssymb, amsmath}", 
+                    "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
+  plot(p.combined_ifs)
+  dev.off()
   
-  # p.combined_ifs
-  ggsave(paste(plot_dir, "combined-ifs-c-true.png", sep=fs), p.combined_ifs,
-         width=7, height=2.5)
-  
-  # Figure 2 ----------------------------------------------------------------
+  # Fig.15 Appendix: expected value to choose each utterance ----------------
   # speaker results unique sampled states from n samples 
   # (rowid is unique, bn_id not necessarily)
   data.speaker.all <- read_rds(params.speaker$target) %>%
     select(-level, -p_delta, -p_diff) %>% ungroup()
-  
-  # Fig.Appendix: expected value to choose each utterance
+
   speaker.evs = data.speaker.all %>% group_by(r, utterance) %>% 
     summarize(probs=mean(probs), .groups="keep") %>% arrange(desc(probs)) %>%
     chunk_utterances() %>% summarize(probs=sum(probs), .groups="drop_last")
   
   p.speaker_evs = speaker.evs %>% add_graph() %>% 
-    group_by(relation, utterance) %>%
+    group_by(r_graph, utterance) %>%
     summarize(probs=mean(probs), .groups = "drop_last") %>% 
-    ggplot(aes(x=relation, y=probs, fill=utterance)) + 
-    geom_bar(stat="identity", position=position_dodge2(preserve = "single")) +
-    theme_minimal() + theme(legend.position="top") +
-    scale_fill_viridis(name="utterance type", discrete = TRUE) +
-    labs(x="causal relation", y=str_wrap("expected utterance choice probability", width=20)) +
-    scale_x_discrete(labels = function(label) parse(text=label))
-  
-  # p.speaker_evs
-  ggsave(paste(plot_dir, "speaker-evs.png", sep=fs), p.speaker_evs,
-         width=7, height=2.5)
+    ggplot(aes(x = r_graph, y = probs, fill = utterance, color = utterance)) + 
+    geom_bar_pattern(
+      aes(pattern = utterance, pattern_linetype = utterance),
+      pattern_density = 0.1, pattern_colour =  'white', pattern_fill = 'white',
+      width = 0.8,
+      position = position_dodge2(preserve = "single"), stat = "identity",
+      pattern_key_scale_factor = 0.25
+    ) +
+    theme(legend.spacing.x = unit(1.25, "line")) + 
+    labs(x="causal relation $R$",
+         y=str_wrap("expected utterance choice probability", width=18)) +
+    scale_x_discrete(labels = LABELS_R_TEX) +
+    scale_pattern_linetype_discrete(name = "utterance type") +
+    scale_pattern_discrete(name = "utterance type") +
+    scale_fill_brewer(name = "utterance type", palette = "Set2") +
+    scale_color_brewer(name = "utterance type", palette = "Set2")
 
+  tikz(paste(plot_dir, "speaker-evs.tex", sep=fs), 
+       width = 7, height = 2.5, standAlone = FALSE,
+       packages = c("\\usepackage{tikz, amssymb, amsmath}", 
+                    "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
+  plot(p.speaker_evs)
+  dev.off()
+
+  # Figure 4 ----------------------------------------------------------------
   df.csv = tibble(val = speaker.evs %>% filter(utterance == "conditional" & 
                                                  r=="A || C") %>% pull(probs),
                   key = "sp_ev_any_conditional_indep")
@@ -221,8 +241,8 @@ for(par_config in subdirs) {
   bn_ids = read_rds(str_replace(params.speaker$target, "results", "sample-ids")) %>% 
     group_by_all() %>% summarize(n_sampled=n(), .groups="drop_last")
   
-  # note:for some states there might be several best utterance choices for the speaker!
-  # (depending on informativeness of utterances)
+  # note:for some states there might be several best utterance choices for the 
+  # speaker! (depending on informativeness of utterances)
   data.speaker.best <- data.speaker %>% group_by(rowid) %>%
     mutate(p_best=max(probs), u_best=list(utterance[probs == max(probs)])) %>%
     unnest(c(u_best)) %>% select(-p_best) %>% 
@@ -258,13 +278,15 @@ for(par_config in subdirs) {
       "xor" = "(iii) A xor C certain")
   
   tikz(paste(plot_dir, "speaker_freq_best_un_certain_other.tex", sep=fs), 
-       width = 7.5, height = 2.5, standAlone = FALSE,
+       width = 7.5, height = 3.5, standAlone = FALSE,
        packages = c("\\usepackage{tikz, amssymb, amsmath}", 
                     "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
   p = plot_speaker_conditions(sp.best.conditions.chunked)
-  p
+  plot(p)
   dev.off()
-  
+
+
+  # Some checks -------------------------------------------------------------
   # 1.check A,C uncertain + independent + best utterance is conditional
   # almost true states?
   df.unc_ind_best_if <- sp.best.conditions %>% 
@@ -301,20 +323,31 @@ for(par_config in subdirs) {
                  values_to="val") %>% 
     filter(val >= theta)
   # should be TRUE (1)
-  df.csv = bind_rows(df.csv, tibble(key="both_certain_ind_best_not_conj_since_not_assertable",
-                                    val = nrow(check_certain_ind_best_not_conj) == 0))
-  
-  # Figure 3+4 ----------------------------------------------------------------
+  df.csv = bind_rows(df.csv, 
+                     tibble(key="both_certain_ind_best_not_conj_since_not_assertable",
+                            val = nrow(check_certain_ind_best_not_conj) == 0))
+
+  # Figure 5 + 6, CP --------------------------------------------------------
   data.cp = data_cp_plots(params) 
   cp.relations = data.cp %>% filter(val=="relations")
-  p.probs <- data.cp %>% filter(val=="p") %>% 
-    plot_cp_probs(paste(plot_dir, "cp-evs-probs.tex", sep=fs), w=7, h=2.5)
-  p.relations <- cp.relations %>% plot_cp_relations()
-  # p.probs
-  # p.relations
-  ggsave(paste(plot_dir, "evs-relations.png", sep=fs), p.relations, width=7, height=2.5)
   
-  # Figure 5 ----------------------------------------------------------------
+  # Figure 5
+  tikz(paste(plot_dir, "cp-evs-probs.tex", sep=fs), width = 7, height = 2.5, 
+       standAlone = FALSE, packages = c("\\usepackage{tikz, amsmath, amssymb}"))
+  p.probs <- data.cp %>% filter(val=="p") %>% plot_cp_probs()
+  plot(p.probs)
+  dev.off()
+  
+  # Figure 6
+  tikz(paste(plot_dir, "evs-relations.tex", sep=fs), width = 7.5, height = 2.5, 
+       standAlone = FALSE, 
+       packages = c("\\usepackage{tikz, amsmath, amssymb}",
+                    "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
+  p.relations <- cp.relations %>% plot_cp_relations()
+  plot(p.relations)
+  dev.off()
+
+  # Figure 7 ----------------------------------------------------------------
   cond_all = c("p_delta", "p_rooij", "p_diff")
   cond <- "p_rooij"
   
@@ -371,8 +404,8 @@ for(par_config in subdirs) {
   p <- plot_grid(plots.all[[3]], plots.all[[2]], plots.all[[1]], ncol=1)
   ggsave(paste(plot_dir, "accept-conditions.png", sep=fs), p, width=8, height=10)
   
-  
-  # ---%%%%%% additional checks on tables of pragmatic speaker condition %%%%%%---
+
+  # additional checks on tables of pragmatic speaker condition --------------
   prag.ind = speaker.pragmatic %>% filter(r == "A || C") 
   sp.prag.ratio.ind = nrow(prag.ind) / nrow(speaker.pragmatic)
   df.csv <- bind_rows(df.csv, tibble(key = "ratio_pragmatic_speaker_cond_r_ind", 
@@ -414,7 +447,7 @@ for(par_config in subdirs) {
   ratio.prior_neg = prior_vals %>% filter(condition < 0) %>% ungroup() %>% nrow() / (prior_vals  %>% nrow())
   df.csv <- bind_rows(df.csv, tibble(key="ratio_prior_accept_cond_neg", val = ratio.prior_neg))
   
-  # Figures Appendix -----------------------------------------------------------
+  # Figure 8 ----------------------------------------------------------------
   # speaker results for states from literal speaker condition where the 
   # speaker's best utterance is NOT A->C
   df.sp_lit_best_not_ifac = speaker.literal.best %>%
@@ -426,7 +459,6 @@ for(par_config in subdirs) {
        width = 7, height = 2.5, standAlone = FALSE,
        packages = c("\\usepackage{tikz, amssymb, amsmath}", 
                     "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
-  
   p <- df.sp_lit_best_not_ifac %>% 
     mutate(utterance = as.character(utterance), 
            utterance = case_when(utterance == "conditional" ~ "(other) conditional",
@@ -435,19 +467,18 @@ for(par_config in subdirs) {
     ggplot(aes(x=utterance, y=condition, color=r_graph)) + 
     geom_boxplot() +
     labs(x="", y="$\\Delta^{*}  P^{(s)}$") +
-    theme(axis.text.y=element_text(), legend.key.size = unit(0.75,"line"),
-          legend.spacing.x = unit(1.25, "line")) +
-    scale_color_viridis(name="causal relation $\\mathcal{R}$", discrete=TRUE,
+    theme(axis.text.y=element_text(), legend.spacing.x = unit(1.25, "line")) +
+    scale_color_brewer(name="causal relation $R$", palette='Set2',
                         labels=LABELS_R_TEX) +
     coord_cartesian(ylim=c(0,1)) # zoom in for positive values
-  p
+  plot(p)
   dev.off()
   
   # get ranges
   df.sp_lit_best_not_ifac %>% add_graph() %>% group_by(utterance, r_graph) %>% 
     summarize(min=min(condition), max=max(condition))
   
-  # literal-speaker condition, but best utterance is another conditional than A->C
+  # literal-speaker condition, but best utterance is other conditional than A->C
   df.lit_sp = df.sp_lit_best_not_ifac %>% filter(utterance=="conditional") %>% 
     mutate(conj=AC>theta | `A-C`>theta | `-AC`>theta | `-A-C`>theta,
            lit=(AC+`A-C` > theta) | (AC+`-AC`>theta) |
@@ -455,8 +486,9 @@ for(par_config in subdirs) {
   
   nb_lit_or_conj_assertable = nrow(df.lit_sp %>% filter(conj | lit))
   # should be 0
-  df.csv <- bind_rows(df.csv, tibble(key="nb_tables_literal_speaker_cond_other_conditional_best_utt_but_conj_or_lit_assertable",
-                                     val = nb_lit_or_conj_assertable))
+  df.csv <- bind_rows(df.csv, 
+                      tibble(key="nb_tables_literal_speaker_cond_other_conditional_best_utt_but_conj_or_lit_assertable",
+                             val = nb_lit_or_conj_assertable))
   
   df.csv = df.csv %>% add_column(alpha=alpha, theta=theta)
   csv_data = bind_rows(csv_data, df.csv)

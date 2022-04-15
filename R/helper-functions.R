@@ -1,5 +1,5 @@
 library(latex2exp)
-library(viridisLite)
+library(RColorBrewer)
 library(yaml)
 
 fs = .Platform$file.sep
@@ -45,21 +45,18 @@ LABELS_sp_levels <-
     `literal-speaker` = expression(paste("Literal speaker")),
     `pragmatic-speaker` = expression(paste("Pragmatic speaker")))
 
-viridis1 <- viridis(20)
-viridis2 <- plasma(20)
-viridis3 <- cividis(20)
+brewer_pairs = brewer_pal(palette = 'Paired')(11)  
 COLS_r <- c(
-  "C implies A" = viridis2[13],
-  "A implies C" = viridis2[10],
-  "-A implies -C" = viridis2[4],
-  "-C implies -A" = viridis2[7],
-  "A || C" = viridis3[18],
-  "-C implies A" = viridis1[16],
-  "-A implies C" = viridis1[14],
-  "C implies -A" = viridis1[12],
-  "A implies -C" = viridis1[18]
+  "C implies A" = brewer_pairs[1],
+  "A implies C" = brewer_pairs[3],
+  "-A implies -C" = brewer_pairs[4],
+  "-C implies -A" = brewer_pairs[2],
+  "A || C" = brewer_pairs[11],
+  "-C implies A" = brewer_pairs[5],
+  "-A implies C" = brewer_pairs[7],
+  "C implies -A" = brewer_pairs[6],
+  "A implies -C" = brewer_pairs[8]
 )
-  
 
 save_data <- function(data, target_path){
   data %>% write_rds(target_path)
@@ -256,15 +253,25 @@ plot_speaker_conditions <- function(data) {
            r_graph = factor(r_graph, 
                             levels = c("A || C", "A implies C", "C implies A")))
   p <- df %>%
-    ggplot(aes(y=utterance, x=p, fill = r_graph)) +
-    geom_bar(stat="identity", 
-             position = position_dodge(preserve="single")) +
+    ggplot(aes(y=utterance, x=p, fill = r_graph, color = r_graph)) +
+    geom_bar_pattern(
+      aes(pattern = r_graph, pattern_linetype = r_graph),
+      pattern_density = 0.1, pattern_colour = 'white', pattern_fill = 'white',
+      position = position_dodge2(preserve = "single"), stat = "identity",
+      pattern_key_scale_factor = 0.25
+    ) +
     facet_wrap(~speaker_condition) +
-    scale_fill_viridis(discrete=T, name="causal relation $\\mathcal{R}$", labels = LABELS_R_TEX) +
-    theme(axis.text.y=element_text(), legend.key.size = unit(0.75, "line"), 
-          legend.spacing.x = unit(1.25, "line"), panel.spacing = unit(1.5, "lines")) +
+    scale_fill_brewer(name = "causal relation $R$", palette = 'Set2', labels = LABELS_R_TEX) +
+    scale_color_brewer(name = "causal relation $R$", palette = 'Set2', labels = LABELS_R_TEX) +
+    scale_pattern_linetype_discrete(name = "causal relation $R$", labels = LABELS_R_TEX) +
+    scale_pattern_discrete(name = "causal relation $R$", labels = LABELS_R_TEX) +
+    theme(axis.text.y=element_text(), legend.spacing.x = unit(1.25, "line"), 
+          panel.spacing = unit(1.5, "lines")) +
     labs(x = "proportion", y="") +
-    guides(fill=guide_legend(reverse = TRUE, title.position = "left", spacing.x = 1))
+    guides(fill=guide_legend(reverse = TRUE, title.position = "left", spacing.x = 1), 
+           color=guide_legend(reverse = TRUE, title.position = "left", spacing.x = 1), 
+           pattern=guide_legend(reverse = TRUE, title.position = "left", spacing.x = 1),
+           pattern_linetype=guide_legend(reverse = TRUE, title.position = "left", spacing.x = 1))
   return(p)
 }
 
@@ -295,32 +302,48 @@ data_cp_plots <- function(params, data=NA){
   return(data)  
 }
 
-plot_cp_relations <- function(cp.relations){
+plot_cp_relations <- function(cp.relations, fn, w, h){
   p.relations <- cp.relations %>% 
+    mutate(val_type = factor(val_type, 
+                             levels=c("A || C", "C implies A", "-C implies -A", 
+                                      "A implies C", "-A implies -C", 
+                                      "C implies -A", "-C implies A", 
+                                      "A implies -C", "-A implies C"))) %>% 
     ggplot(aes(y=level, x=ev, fill=val_type)) + 
-    geom_bar(position=position_stack(), stat="identity") +
-    scale_fill_manual(name="causal relation", labels=LABELS_r, values=COLS_r) +
+    geom_bar_pattern(aes(pattern = r_graph, pattern_linetype = r_graph), 
+                     pattern_density = 0.1, pattern_colour =  'white', 
+                     pattern_fill = 'white', 
+                     pattern_key_scale_factor = 0.25,
+                     position=position_stack(), stat="identity") +
+    scale_fill_manual(name="instance $r$", labels=LABELS_r, values=COLS_r, 
+                      guide = guide_legend(reverse = TRUE, 
+                                           override.aes = 
+                                             list(pattern = "none", 
+                                                  pattern_linetype = "none"))) +
+    scale_pattern_linetype_discrete(name = "Relation $R$", labels = LABELS_R_TEX) + 
+    scale_pattern_discrete(name = "Relation $R$", labels = LABELS_R_TEX) +
     labs(x="Degree of belief", y="") +
-    theme_minimal() +
-    theme(legend.position="top", legend.key.size = unit(0.75,"line")) +
-    guides(fill=guide_legend(reverse = TRUE))
+    theme(legend.key.size = unit(0.75,"line"), legend.box = 'vertical',
+          legend.spacing.x = unit(1.25, "line"))
   return(p.relations)
 }
 
 plot_cp_probs <- function(dat, fn, w, h){
-  tikz(fn, width = w, height = h, standAlone = FALSE,
-       packages = c("\\usepackage{tikz, amsmath, amssymb}"))
   p.probs <- dat %>% filter(val=="p") %>% 
-    ggplot(aes(y=level, x=ev, fill=val_type)) + 
-    geom_bar(position=position_dodge(), stat="identity") +
-    scale_fill_viridis(discrete=TRUE, name="value ", labels = LABELS_cp_probs) +
+    ggplot(aes(y=level, x=ev, fill = val_type, color = val_type)) + 
+    geom_bar_pattern(aes(pattern = val_type, pattern_linetype = val_type),
+                     pattern_density = 0.1, pattern_colour =  'white', 
+                     pattern_fill = 'white', pattern_key_scale_factor = 0.25, 
+                     stat="identity", position=position_dodge()) +
+    scale_pattern_linetype_discrete(name = "value ", labels = LABELS_cp_probs) +
+    scale_pattern_discrete(name = "value ", labels = LABELS_cp_probs) +
+    scale_fill_brewer(palette = 'Set2', name="value ", labels = LABELS_cp_probs) +
+    scale_color_brewer(palette = 'Set2', name="value ", labels = LABELS_cp_probs) +
     labs(x="Degree of belief", y="") +
-    theme_minimal() +
-    theme(legend.position="top", legend.key.size = unit(0.75,"line"),
-          legend.spacing.x = unit(1.25, "line")) +
-    guides(fill=guide_legend(reverse = TRUE))
-  p.probs
-  dev.off()
+    theme(legend.key.size = unit(0.75,"line"), legend.spacing.x = unit(1.25, "line")) +
+    guides(fill=guide_legend(reverse = TRUE), color=guide_legend(reverse = TRUE), 
+           pattern_linetype = guide_legend(reverse = TRUE),
+           pattern = guide_legend(reverse = TRUE))
   return(p.probs)
 }
 

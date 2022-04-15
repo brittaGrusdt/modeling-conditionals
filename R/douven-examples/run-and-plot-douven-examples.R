@@ -3,7 +3,7 @@ library(here)
 library(rwebppl)
 library(tidyverse)
 library(tikzDevice)
-library(viridis)
+library(RColorBrewer)
 source("R/helper-functions.R")
 source("R/helpers-webppl.R")
 
@@ -173,126 +173,135 @@ df.obs = dat %>% filter(level == "PL-observed" | level == "PL") %>%
                                "Pragmatic interpretation\n w/o listener's observation")))
 
 # PLOTS -------------------------------------------------------------------
+plot_douven_gp_ski = function(df.pragmatic, ex, ex.max_x, labels_marginal){
+  df = df.pragmatic %>% filter(example == ex)
+  
+  p = df %>% ggplot(aes(y = level, x = ev, fill = state, color = state)) +
+    geom_bar_pattern(mapping = aes(pattern = state, pattern_linetype = state), 
+                     stat="identity", position="stack",
+                     pattern_density = 0.1, pattern_colour = 'white', 
+                     pattern_fill = 'white', pattern_key_scale_factor = 0.25) +
+    facet_wrap(~marginal, labeller=as_labeller(labels_marginal)) +
+    scale_x_continuous(breaks = seq(0, ex.max_x, by=0.1)) +
+    scale_pattern_discrete(name = "state") + 
+    scale_pattern_linetype_discrete(name = "state") + 
+    scale_fill_brewer(name="state", palette = 'Set2') +
+    scale_color_brewer(name = 'state', palette = 'Set2') +
+    labs(x = "", y = "", title = "") +
+    theme(legend.key.size = unit(0.75, "line"), 
+          legend.spacing.x = unit(1.25, "line")) +
+    guides(fill=guide_legend(reverse = TRUE), color=guide_legend(reverse = TRUE), 
+           pattern_linetype = guide_legend(reverse = TRUE),
+           pattern = guide_legend(reverse = TRUE))
+  return(p)
+}
 # 1.Skiing Example --------------------------------------------------------
 ex <- "skiing"
 ex.max_x <- max_x %>% filter(example==ex & level %in% c("prior", "LL", "PL")) %>%
   pull(max) %>% max()
-df = df.pragmatic %>% filter(example == ex)
 tikz(paste(plot_dir, paste(ex, "pragmatic.tex", sep="-"), sep=fs),
      width = 5, height = 2.5, standAlone = FALSE,
      packages = c("\\usepackage{tikz, amssymb, amsmath}", 
                   "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
-df %>% ggplot() +
-  geom_bar(mapping = aes(y=level, x=ev, fill=state), stat="identity", position="stack") +
-  facet_wrap(~marginal, labeller=as_labeller(c(`e`="$\\mathbb{E}[P^{(s)}(e)]$"))) +
-  scale_fill_viridis(name="state", discrete = TRUE) +
-  scale_x_continuous(breaks = seq(0, ex.max_x, by=0.1)) +
-  labs(x="", y="", title="") +
-  theme(panel.spacing = unit(2, "lines"), legend.key.size = unit(0.75,"line"), 
-        legend.spacing.x = unit(1.25, "line"), legend.position = "top") +
-  guides(fill=guide_legend(reverse = TRUE))
+p.ski = plot_douven_gp_ski(df.pragmatic, ex, ex.max_x, labels_marginal = 
+                             c(`e`="$\\mathbb{E}[P^{(s)}(e)]$"))
+plot(p.ski)
 dev.off()
 
 # interpretation with listener's observation
-ex.max_x <- max_x %>% filter(example==ex & level %in% c("PL-observed", "PL")) %>%
-  pull(max) %>% max()
+ex.max_x <- max_x %>% 
+  filter(example == ex & level %in% c("PL-observed", "PL")) %>% pull(max) %>% max()
 df = df.obs %>% filter(example == ex)
 tikz(paste(plot_dir, paste(ex, "with-observation.tex", sep="-"), sep=fs), 
      width = 5, height = 2.5, standAlone = FALSE, 
      packages = c("\\usepackage{tikz, amssymb, amsmath}", 
                   "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
-df %>% ggplot() + 
-  geom_bar(mapping = aes(y=level, x=ev, fill = state), stat="identity", 
-           position = "stack") + 
-  facet_wrap(~marginal, labeller=as_labeller(c(`e`="$\\mathbb{E}[P^{(s)}(e\\mid c)]$"))) + 
-  scale_fill_viridis(name="state", discrete = TRUE) +
-  scale_x_continuous(breaks = seq(0, ex.max_x, by=0.1)) +
-  labs(x="", y="", title="") +
-  theme(panel.spacing = unit(2, "lines"), legend.key.size = unit(0.75,"line"),
-        legend.spacing.x = unit(1.25, "line"), legend.position="top") + 
-  guides(fill=guide_legend(reverse = TRUE))
+
+p.ski_obs = plot_douven_gp_ski(df, ex, ex.max_x, labels_marginal = 
+                                 c(`e`="$\\mathbb{E}[P^{(s)}(e\\mid c)]$"))
+plot(p.ski_obs)
 dev.off()
+
 
 # 2.Garden Party Example --------------------------------------------------
 ex <- "gardenParty"
-ex.max_x <- max_x %>% filter(example==ex & level %in% c("prior", "LL", "PL")) %>%
+ex.max_x <- max_x %>% 
+  filter(example == ex & level %in% c("prior", "LL", "PL")) %>%
   pull(max) %>% max()
 df = df.pragmatic %>% filter(example == ex)
 tikz(paste(plot_dir, paste(ex, "pragmatic.tex", sep="-"), sep=fs),
      width = 5, height = 2.5, standAlone = FALSE,
      packages = c("\\usepackage{tikz, amssymb, amsmath}",
                   "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
-df %>% ggplot() +
-  geom_bar(mapping = aes(y=level, x=ev, fill=state), stat="identity", position="stack") +
-  facet_wrap(~marginal, labeller=as_labeller(c(`d`="$\\mathbb{E}[P^{(s)}(d)]$"))) +
-  scale_fill_viridis(name="state", discrete = TRUE) +
-  scale_x_continuous(breaks = seq(0, ex.max_x, by=0.1)) +
-  labs(x="", y="", title="") +
-  theme(panel.spacing = unit(2, "lines"), legend.key.size = unit(0.75,"line"),
-        legend.spacing.x = unit(1.25, "line")) +
-  guides(fill=guide_legend(reverse = TRUE))
+p.garden_party = plot_douven_gp_ski(df, ex, ex.max_x, labels_marginal = 
+                                      c(`d`="$\\mathbb{E}[P^{(s)}(d)]$"))
+plot(p.garden_party)
 dev.off()
+
 # interpretation with listener's observation
-ex.max_x <- max_x %>% filter(example==ex & level %in% c("PL-observed", "PL")) %>%
+ex.max_x <- max_x %>% 
+  filter(example == ex & level %in% c("PL-observed", "PL")) %>%
   pull(max) %>% max()
 df = df.obs %>% filter(example == ex)
 tikz(paste(plot_dir, paste(ex, "with-observation.tex", sep="-"), sep=fs), 
      width = 5, height = 2.5, standAlone = FALSE, 
      packages = c("\\usepackage{tikz, amssymb, amsmath}", 
                   "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
-df %>% ggplot() + 
-  geom_bar(mapping = aes(y=level, x=ev, fill = state), stat="identity", 
-           position = "stack") + 
-  facet_wrap(~marginal, labeller=as_labeller(c(`d`="$\\mathbb{E}[P^{(s)}(d\\mid s)]$"))) + 
-  scale_fill_viridis(name="state", discrete = TRUE) +
-  scale_x_continuous(breaks = seq(0, ex.max_x, by=0.1)) +
-  labs(x="", y="", title="") +
-  theme(panel.spacing = unit(2, "lines"), legend.key.size = unit(0.75,"line"),
-        legend.spacing.x = unit(1.25, "line"), legend.position="top") + 
-  guides(fill=guide_legend(reverse = TRUE))
+p.gp_observed = plot_douven_gp_ski(df, ex, ex.max_x, labels_marginal = 
+                                     c(`d`="$\\mathbb{E}[P^{(s)}(d\\mid s)]$"))
+plot(p.gp_observed)
 dev.off()
+
 
 # 3.Sundowners Example ----------------------------------------------------
 ex <- "sundowners"
-ex.max_x <- max_x %>% filter(example==ex & level %in% c("prior", "LL", "PL")) %>%
+ex.max_x <- max_x %>% 
+  filter(example == ex & level %in% c("prior", "LL", "PL")) %>%
   pull(max) %>% max()
 
 df = df.pragmatic %>% filter(example == ex)
 # add inferred relations
-df = bind_rows(df, 
-               sundowners.results %>% group_by(level, r_graph) %>% rename(ev=prob) %>% 
-                 mutate(r_graph = factor(r_graph, levels = c("R||S", "R > S", "E || S>C", 
-                                                             "E>S>C", "D || G>-S", "D>G>-S"), 
-                                         labels = c("$R\\indep S$", 
-                                                    "$R\\rightarrow S$",
-                                                    "$E\\indep S$", "$E\\rightarrow S$",
-                                                    "$D \\indep G$", "$D \\rightarrow G$")),
-                        marginal = "causal relation",
-                        level=factor(level, levels=c("PL", "LL", "prior"), 
-                                     labels=c("Pragmatic interpretation", 
-                                              "Literal interpretation", "Prior belief")), 
-                        conditioned = FALSE, example = ex) %>% 
-                 dplyr::select(-rowid)
+df = bind_rows(
+  df, 
+  sundowners.results %>% group_by(level, r_graph) %>% rename(ev=prob) %>% 
+    mutate(r_graph = factor(r_graph, levels = c("R||S", "R > S", "E || S>C", 
+                                                "E>S>C", "D || G>-S", "D>G>-S"), 
+                            labels = c("$R\\indep S$", "$R\\rightarrow S$",
+                                       "$E\\indep S$", "$E\\rightarrow S$",
+                                       "$D \\indep G$", "$D \\rightarrow G$")),
+           marginal = "causal relation",
+           level=factor(level, levels=c("PL", "LL", "prior"), 
+                        labels=c("Pragmatic interpretation", 
+                                 "Literal interpretation", "Prior belief")), 
+           conditioned = FALSE, example = ex) %>% dplyr::select(-rowid)
 )
-
 tikz(paste(plot_dir, paste(ex, "pragmatic.tex", sep="-"), sep=fs),
      width = 6, height = 2.5, standAlone = FALSE,
      packages = c("\\usepackage{tikz, amssymb, amsmath}", 
                   "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
-df %>% ggplot() +
-  geom_bar(mapping = aes(y=level, x=ev, fill=r_graph), stat="identity", position="stack") +
-  facet_wrap(~marginal, labeller=as_labeller(
-    c(`r`="$\\mathbb{E}[P^{(s)}(r)]$", `rs`="$\\mathbb{E}[P^{(s)}(r,s)]$", 
-      `causal relation` = "$\\mathbb{E}[P^{(s)}(\\mathcal{R})]$")
-  )) +
-  scale_fill_viridis(name="causal relation $\\mathcal{R}$", discrete = TRUE, 
-                     labels = LABELS_R_TEX) +
+p.sundowners = df %>% ggplot(mapping = aes(y=level, x=ev, fill=r_graph)) +
+  geom_bar_pattern(aes(pattern = r_graph, pattern_linetype = r_graph), 
+                   stat="identity", position="stack",
+                   pattern_density = 0.1, pattern_colour = 'white', 
+                   pattern_fill = 'white', pattern_key_scale_factor = 0.25) + 
+  facet_wrap(~marginal, labeller=
+               as_labeller(c(`r`="$\\mathbb{E}[P^{(s)}(r)]$", 
+                             `rs`="$\\mathbb{E}[P^{(s)}(r,s)]$", 
+                             `causal relation` = "$\\mathbb{E}[P^{(s)}(R)]$")))+
   scale_x_continuous(labels = number_format(accuracy = 0.1)) + 
+  scale_fill_brewer(name = "causal relation $R$", palette = 'Set2', 
+                    labels = LABELS_R_TEX) +
+  scale_color_brewer(name = "causal relation $R$", palette = 'Set2', 
+                     labels = LABELS_R_TEX) +
+  scale_pattern_discrete(name = "causal relation $R$") + 
+  scale_pattern_linetype_discrete(name = "causal relation $R$") + 
   labs(x="", y="", title="") +
   theme(panel.spacing = unit(2, "lines"), legend.key.size = unit(0.75,"line"),
         legend.spacing.x = unit(1.25, "line")) +
-  guides(fill=guide_legend(reverse = TRUE))
-
+  guides(fill=guide_legend(reverse = TRUE), color=guide_legend(reverse = TRUE), 
+         pattern_linetype = guide_legend(reverse = TRUE),
+         pattern = guide_legend(reverse = TRUE))
+p.sundowners
 dev.off()
 
 message(paste('saved plots to', plot_dir))
