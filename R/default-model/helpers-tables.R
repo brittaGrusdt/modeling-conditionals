@@ -38,7 +38,7 @@ plot_tables_relations <- function(tables_path, plot_dir, w, h, tables=NA){
     df_meta[[i]] = 
       data.frame(label = tables.evs %>% filter(r == !!r) %>%
                    dplyr::select(-r) %>% as.numeric(),
-                 cell=c(1,2,3,4), x=rep(0.8, 4), y=rep(200,4)
+                 cell=c(1,2,3,4), x=rep(0.8, 4), y=rep(400,4)
                 ) %>% 
       mutate(cell = factor(cell))
     if(r == "A || C"){

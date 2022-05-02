@@ -25,8 +25,8 @@ seed <- "1644922777.24488"
 # figures for specific param config or plot for all combinations
 theta <- 0.9
 alpha <- 3
-pars <- paste(alpha, theta, sep="--")
-# pars <- "all"
+# pars <- paste(alpha, theta, sep="--")
+pars <- "all"
 
 #plot_tables = FALSE
 plot_tables = TRUE
@@ -101,7 +101,7 @@ for(par_config in subdirs) {
 
   plot_dir = params$plot_dir
   
-  # Figure 2 ----------------------------------------------------------------
+  # Figure 3 ----------------------------------------------------------------
   tables = data %>% filter(level == "prior") %>% 
     ungroup() %>% dplyr::select(r, relation, bn_id, cell, val) %>% 
     group_by(bn_id) %>% pivot_wider(names_from="cell", values_from="val") %>% 
@@ -118,7 +118,7 @@ for(par_config in subdirs) {
   if(plot_tables && which(subdirs == par_config) == 1) {
     table_dir <- paste(params$seed_dir, "figs-tables", sep = fs)
     if(!dir.exists(table_dir)) dir.create(table_dir)
-    plot_tables_relations("", table_dir, w=3, h=3.5, tables_df)
+    plot_tables_relations("", table_dir, w=3.5, h=3.5, tables_df)
   }
   
   # Informativeness of utterances (Table Appendix)
@@ -231,7 +231,7 @@ for(par_config in subdirs) {
   plot(p.speaker_evs)
   dev.off()
 
-  # Figure 4 ----------------------------------------------------------------
+  # Figure 5 ----------------------------------------------------------------
   df.csv = tibble(val = speaker.evs %>% filter(utterance == "conditional" & 
                                                  r=="A || C") %>% pull(probs),
                   key = "sp_ev_any_conditional_indep")
@@ -329,18 +329,17 @@ for(par_config in subdirs) {
                      tibble(key="both_certain_ind_best_not_conj_since_not_assertable",
                             val = nrow(check_certain_ind_best_not_conj) == 0))
 
-  # Figure 5 + 6, CP --------------------------------------------------------
+  # Figure 6 + 7, CP --------------------------------------------------------
   data.cp = data_cp_plots(params) 
   cp.relations = data.cp %>% filter(val=="relations")
-  
-  # Figure 5
+  # Figure 6
   tikz(paste(plot_dir, "cp-evs-probs.tex", sep=fs), width = 7, height = 2.5, 
        standAlone = FALSE, packages = c("\\usepackage{tikz, amsmath, amssymb}"))
   p.probs <- data.cp %>% filter(val=="p") %>% plot_cp_probs()
   plot(p.probs)
   dev.off()
   
-  # Figure 6
+  # Figure 7
   tikz(paste(plot_dir, "evs-relations.tex", sep=fs), width = 7.5, height = 2.5, 
        standAlone = FALSE, 
        packages = c("\\usepackage{tikz, amsmath, amssymb}",
@@ -349,7 +348,7 @@ for(par_config in subdirs) {
   plot(p.relations)
   dev.off()
 
-  # Figure 7 ----------------------------------------------------------------
+  # Figure 8 ----------------------------------------------------------------
   cond_all = c("p_delta", "p_rooij", "p_diff")
   cond <- "p_rooij"
   
@@ -360,7 +359,7 @@ for(par_config in subdirs) {
   prior <-  read_rds(params.prior$target) %>%
     pivot_wider(names_from = "cell", values_from = "val") %>% 
     mutate(level = "prior") %>%
-    pivot_longer(cols=c(p_delta, p_rooij, p_diff),names_to="condition",
+    pivot_longer(cols=c(p_delta, p_rooij, p_diff), names_to="condition",
                  values_to = "val")
   
   ## a)speaker.literal by filtering samples from prior s.t. those remain where
@@ -377,8 +376,8 @@ for(par_config in subdirs) {
   # We use this version!
   speaker.lit <- read_rds(params.sp_literal$target)
   speaker.literal <- speaker.lit %>% 
-    pivot_longer(cols=c("p_delta", "p_rooij", "p_diff"), names_to = "condition_name",
-                 values_to="condition") %>% 
+    pivot_longer(cols=c("p_delta", "p_rooij", "p_diff"), 
+                 names_to = "condition_name", values_to="condition") %>% 
     filter(!condition_name %in% cond_all[cond_all != cond]) %>% 
     dplyr::select(-condition_name) %>% 
     mutate(utterance = paste("utt", utterance, sep="_"),
@@ -406,7 +405,6 @@ for(par_config in subdirs) {
   p <- plot_grid(plots.all[[3]], plots.all[[2]], plots.all[[1]], ncol=1)
   ggsave(paste(plot_dir, "accept-conditions.png", sep=fs), p, width=8, height=10)
   
-
   # additional checks on tables of pragmatic speaker condition --------------
   prag.ind = speaker.pragmatic %>% filter(r == "A || C") 
   sp.prag.ratio.ind = nrow(prag.ind) / nrow(speaker.pragmatic)
@@ -449,7 +447,7 @@ for(par_config in subdirs) {
   ratio.prior_neg = prior_vals %>% filter(condition < 0) %>% ungroup() %>% nrow() / (prior_vals  %>% nrow())
   df.csv <- bind_rows(df.csv, tibble(key="ratio_prior_accept_cond_neg", val = ratio.prior_neg))
   
-  # Figure 8 ----------------------------------------------------------------
+  # Figure 9 ----------------------------------------------------------------
   # speaker results for states from literal speaker condition where the 
   # speaker's best utterance is NOT A->C
   df.sp_lit_best_not_ifac = speaker.literal.best %>%

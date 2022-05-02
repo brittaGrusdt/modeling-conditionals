@@ -3,27 +3,13 @@ library(RColorBrewer)
 library(yaml)
 
 fs = .Platform$file.sep
-LABELS_R = c(
-  "A || C" = expression(paste("A,C independent")),
-  "A implies C" = expression(paste(A%->%C)),
-  "A implies -C" = expression(paste(A%->%C)),
-  "-A implies C" = expression(paste(A%->%C)),
-  "-A implies -C" = expression(paste(A%->%C)),
-  "C implies A" = expression(paste(C%->%A)),
-  "C implies -A" = expression(paste(C%->%A)),
-  "-C implies A" = expression(paste(C%->%A)),
-  "-C implies -A" = expression(paste(C%->%A))
-)
+
 LABELS_R_TEX = c(
   "A || C" = "$A\\indep C$",
   "A implies C" = "$A\\rightsquigarrow C$",
-  "A implies -C" = "$A\\rightsquigarrow C$",
   "-A implies C" = "$A\\rightsquigarrow C$",
-  "-A implies -C" = "$A\\rightsquigarrow C$",
   "C implies A" = "$C\\rightsquigarrow A$",
-  "C implies -A" = "$C\\rightsquigarrow A$",
   "-C implies A" = "$C\\rightsquigarrow A$",
-  "-C implies -A" = "$C\\rightsquigarrow A$"
 )
 LABELS_cp_probs = c(
   "P(A|C)" = "$\\mathbb{E}[P^{(s)}(a\\mid c)]$", 
@@ -32,11 +18,7 @@ LABELS_cp_probs = c(
 LABELS_r = c(
   "A implies C" = parse(text=TeX('$A^+C^+$')),
   "C implies A" = parse(text=TeX('$C^+A^+$')),
-  "-A implies -C" = parse(text=TeX('$A^-C^-$')),
-  "-C implies -A" = parse(text=TeX('$C^-A^-$')),
-  "A implies -C" = parse(text=TeX('$A^+C^-$')),
   "-A implies C" = parse(text=TeX('$A^-C^+$')),
-  "C implies -A" = parse(text=TeX('$C^+A^-$')),
   "-C implies A" = parse(text=TeX('$C^-A^+$')),
   "A || C" = expression(paste("A,C independent"))
 )
@@ -45,18 +27,13 @@ LABELS_sp_levels <-
     `literal-speaker` = expression(paste("Literal speaker")),
     `pragmatic-speaker` = expression(paste("Pragmatic speaker")))
 
-brewer_pairs = brewer_pal(palette = 'Paired')(11)  
+brewer_pairs = brewer.pal(5, name = 'Set2')
 COLS_r <- c(
   "C implies A" = brewer_pairs[1],
-  "A implies C" = brewer_pairs[3],
-  "-A implies -C" = brewer_pairs[4],
-  "-C implies -A" = brewer_pairs[2],
-  "A || C" = brewer_pairs[11],
-  "-C implies A" = brewer_pairs[5],
-  "-A implies C" = brewer_pairs[7],
-  "C implies -A" = brewer_pairs[6],
-  "A implies -C" = brewer_pairs[8]
-)
+  "A implies C" = brewer_pairs[2],
+  "A || C" = brewer_pairs[5],
+  "-C implies A" = brewer_pairs[3],
+  "-A implies C" = brewer_pairs[4])
 
 save_data <- function(data, target_path){
   data %>% write_rds(target_path)
@@ -131,7 +108,7 @@ add_graph <- function(data) {
              startsWith(r, "A") | startsWith(r, "-A") ~ "A%->%C",
              startsWith(r, "C") | startsWith(r, "-C") ~ "C%->%A"),
            relation = as.factor(relation),
-           r = factor(r, levels = names(LABELS_R)), 
+           r = factor(r, levels = names(LABELS_R_TEX)), 
            r_graph=factor(r_graph,
                            levels = c("A || C", "A implies C", "C implies A")))
   return(data)
@@ -172,7 +149,8 @@ table_to_utts = function(tables, theta){
 expected_val <- function(df_wide, value_str){
   evs <- df_wide %>% mutate(ev_prod=p * prob)
   evs <- evs %>% group_by(level)
-  evs <- evs %>% summarise(ev=sum(ev_prod), .groups="drop") %>% add_column(p=value_str) %>% ungroup()
+  evs <- evs %>% summarise(ev=sum(ev_prod), .groups="drop") %>% 
+    add_column(p=value_str) %>% ungroup()
   
   # fill non-existent levels for plotting
   levels <- evs$level 
@@ -305,23 +283,25 @@ data_cp_plots <- function(params, data=NA){
 plot_cp_relations <- function(cp.relations, fn, w, h){
   p.relations <- cp.relations %>% 
     mutate(val_type = factor(val_type, 
-                             levels=c("A || C", "C implies A", "-C implies -A", 
-                                      "A implies C", "-A implies -C", 
-                                      "C implies -A", "-C implies A", 
-                                      "A implies -C", "-A implies C"))) %>% 
+                             levels=c("A || C", "C implies A", "-C implies A", 
+                                      "-A implies C", "A implies C")),
+           r_graph = factor(r_graph, levels = c("A || C", "C implies A", "A implies C"))
+           ) %>% 
     ggplot(aes(y=level, x=ev, fill=val_type)) + 
-    geom_bar_pattern(aes(pattern = r_graph, pattern_linetype = r_graph), 
-                     pattern_density = 0.1, pattern_colour =  'white', 
-                     pattern_fill = 'white', 
+    geom_bar_pattern(aes(pattern = r_graph, pattern_linetype = r_graph),
+                     pattern_density = 0.1, pattern_colour =  'white',
+                     pattern_fill = 'white',
                      pattern_key_scale_factor = 0.25,
                      position=position_stack(), stat="identity") +
-    scale_fill_manual(name="instance $r$", labels=LABELS_r, values=COLS_r, 
+    scale_fill_manual(name="instance $r$", labels=LABELS_r, values = COLS_r,
                       guide = guide_legend(reverse = TRUE, 
                                            override.aes = 
                                              list(pattern = "none", 
                                                   pattern_linetype = "none"))) +
-    scale_pattern_linetype_discrete(name = "Relation $R$", labels = LABELS_R_TEX) + 
-    scale_pattern_discrete(name = "Relation $R$", labels = LABELS_R_TEX) +
+    scale_pattern_linetype_discrete(name="relation $R$", labels=LABELS_R_TEX,
+                                    guide = guide_legend(reverse = TRUE)) + 
+    scale_pattern_discrete(name = "relation $R$", labels = LABELS_R_TEX,
+                           guide = guide_legend(reverse = TRUE)) +
     labs(x="Degree of belief", y="") +
     theme(legend.key.size = unit(0.75,"line"), legend.box = 'vertical',
           legend.spacing.x = unit(1.25, "line"))

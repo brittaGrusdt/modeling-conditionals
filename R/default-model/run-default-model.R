@@ -16,8 +16,8 @@ target = "targets_paper_resubmission"
 seed_wppl = "1644922777.24488"
 save_seed_subdir = TRUE
 
-#run_sweep = TRUE
-run_sweep = FALSE
+run_sweep = TRUE
+# run_sweep = FALSE
 
 # Run model ---------------------------------------------------------------
 for(i in seq(1,4)){
