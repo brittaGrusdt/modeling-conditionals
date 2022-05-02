@@ -1,6 +1,7 @@
 library(config)
 library(cowplot)
 library(ggplot2)
+library(ggpattern)
 library(ggthemes)
 library(grid)
 library(latex2exp)
@@ -252,8 +253,8 @@ for(par_config in subdirs) {
   
   sp.best.conditions <- data.speaker.best %>%
     mutate(pa=`AC` + `A-C`, pc=`AC` + `-AC`,
-           certainA = pa >= theta | pa <= 1-theta,
-           certainC = pc >= theta | pc <= 1-theta,
+           certainA = pa > theta | pa < 1-theta,
+           certainC = pc > theta | pc < 1-theta,
            certain=certainA & certainC,
            uncertain=!certainA & !certainC, 
            speaker_condition = case_when(
@@ -262,6 +263,7 @@ for(par_config in subdirs) {
              T ~ "xor"
            ), sp_condition=speaker_condition) %>%
     select(-certainA, -certainC, -certain, -uncertain) %>%
+    mutate(u = utterance) %>% 
     chunk_utterances()
   
   sp.best.conditions.chunked <- sp.best.conditions %>%
