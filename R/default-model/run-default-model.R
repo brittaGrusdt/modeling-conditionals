@@ -7,9 +7,9 @@ fs = .Platform$file.sep
 
 
 # Setup  ------------------------------------------------------------------
-target="targets_test_config"
+# target="targets_test_config"
 # target = "targets_with_or"
-# target = "targets_paper_resubmission"
+target = "targets_paper_resubmission"
 
 # set seed once randomly
 # seed_wppl = as.numeric(Sys.time())
