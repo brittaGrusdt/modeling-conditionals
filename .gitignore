@@ -5,3 +5,7 @@
 
 *.rds
 *.DS_Store
+
+*.aux
+*.synctex.gz
+*.log
