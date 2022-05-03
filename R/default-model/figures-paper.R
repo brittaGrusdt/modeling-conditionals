@@ -52,19 +52,13 @@ plot_accept_conditions <- function(dat, cond_tex_str){
     p <- df %>% 
       ggplot(aes(y=condition, x=r)) +
       geom_boxplot(outlier.size = 0.1) +
-      facet_wrap(~r_f, scales="free", ncol=4, labeller = label_parsed) +
+      facet_wrap(~r_f, scales="free", ncol=5, labeller = label_parsed) +
       labs(y=TeX(cond_tex_str), x="", title=LABELS_sp_levels[levels[[i]]]) +
       theme_minimal() +
       theme(axis.ticks.x = element_blank(),
             axis.text.x = element_blank())
     if(levels[[i]] == "pragmatic-speaker") {
       p <- p + scale_y_continuous(limits = c(df$condition %>% min(), 1))
-    }
-    if(levels[[i]] == "prior"){
-      p <- p + theme(legend.position="bottom",
-                     legend.key.size = unit(0.75,"line"))
-    } else {
-      p <- p + theme(legend.position="none")
     }
     plots[[i]] = p
   }
@@ -144,7 +138,7 @@ for(par_config in subdirs) {
   if(par_config == "3--0.9") print(tbls.utts.tex, include.rownames = FALSE)
   
 
-  # Fig.14 Appendix  --------------------------------------------------------
+  # Fig.14 Appendix (removed)  -----------------------------------------------
   # tables where combined conditional 'A->C and ¬A->C' is assertable
   # vs. tables where 'C' is assertable
   literal_combined_ifs = tables %>%
@@ -194,7 +188,7 @@ for(par_config in subdirs) {
   plot(p.combined_ifs)
   dev.off()
   
-  # Fig.15 Appendix: expected value to choose each utterance ----------------
+  # Fig.15: expected value to choose each utterance -------------------------
   # speaker results unique sampled states from n samples 
   # (rowid is unique, bn_id not necessarily)
   data.speaker.all <- read_rds(params.speaker$target) %>%
@@ -405,7 +399,7 @@ for(par_config in subdirs) {
     group_by(rowid, level)
   plots.all = plot_accept_conditions(df_accept, cond_tex_str)
   p <- plot_grid(plots.all[[3]], plots.all[[2]], plots.all[[1]], ncol=1)
-  ggsave(paste(plot_dir, "accept-conditions.png", sep=fs), p, width=8, height=10)
+  ggsave(paste(plot_dir, "accept-conditions.png", sep=fs), p, width=9, height=8)
   
   # additional checks on tables of pragmatic speaker condition --------------
   prag.ind = speaker.pragmatic %>% filter(r == "A || C") 
