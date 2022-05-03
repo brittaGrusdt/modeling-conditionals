@@ -230,6 +230,8 @@ for(par_config in subdirs) {
                     "\\newcommand{\\indep}{\\rotatebox[origin=c]{90}{$\\models$}}"))
   plot(p.speaker_evs)
   dev.off()
+  #expected value for conditionals when r=independent
+  speaker.evs %>% filter(utterance == "conditional" & r == "A || C")
 
   # Figure 5 ----------------------------------------------------------------
   df.csv = tibble(val = speaker.evs %>% filter(utterance == "conditional" & 
