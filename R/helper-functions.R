@@ -9,7 +9,7 @@ LABELS_R_TEX = c(
   "A implies C" = "$A\\rightsquigarrow C$",
   "-A implies C" = "$A\\rightsquigarrow C$",
   "C implies A" = "$C\\rightsquigarrow A$",
-  "-C implies A" = "$C\\rightsquigarrow A$",
+  "-C implies A" = "$C\\rightsquigarrow A$"
 )
 LABELS_cp_probs = c(
   "P(A|C)" = "$\\mathbb{E}[P^{(s)}(a\\mid c)]$", 
