@@ -32,7 +32,7 @@ pars <- "all"
 plot_tables = TRUE
 
 theme_set(theme_minimal(base_size=12) + theme(legend.position = "top"))
-# funcitons ---------------------------------------------------------------
+# functions ---------------------------------------------------------------
 plot_accept_conditions <- function(dat, cond_tex_str){
   data <- dat %>% 
     mutate(condition = case_when(r == "A || C" & level=="prior" ~ 
@@ -331,9 +331,7 @@ for(par_config in subdirs) {
   # Figure 8
   tikz(paste(plot_dir, "cp-evs-probs.tex", sep=fs), width = 7, height = 2.5, 
        standAlone = FALSE, packages = c("\\usepackage{tikz, amsmath, amssymb}"))
-  p.probs <- data.cp %>% filter(val=="p") %>%
-    filter(val_type != "P(C|A)") %>% 
-    plot_cp_probs()
+  p.probs <- data.cp %>% filter(val=="p") %>% plot_cp_probs()
   plot(p.probs)
   dev.off()
   
