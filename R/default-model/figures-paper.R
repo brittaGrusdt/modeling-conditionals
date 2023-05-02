@@ -95,7 +95,7 @@ for(par_config in subdirs) {
 
   plot_dir = params$plot_dir
   
-  # Figure 3 ----------------------------------------------------------------
+  # Figure 4 ----------------------------------------------------------------
   tables = data %>% filter(level == "prior") %>% 
     ungroup() %>% dplyr::select(r, relation, bn_id, cell, val) %>% 
     group_by(bn_id) %>% pivot_wider(names_from="cell", values_from="val") %>% 
@@ -227,7 +227,7 @@ for(par_config in subdirs) {
   #expected value for conditionals when r=independent
   speaker.evs %>% filter(utterance == "conditional" & r == "A || C")
 
-  # Figure 5 ----------------------------------------------------------------
+  # Figure 6 ----------------------------------------------------------------
   df.csv = tibble(val = speaker.evs %>% filter(utterance == "conditional" & 
                                                  r=="A || C") %>% pull(probs),
                   key = "sp_ev_any_conditional_indep")
@@ -325,13 +325,15 @@ for(par_config in subdirs) {
                      tibble(key="both_certain_ind_best_not_conj_since_not_assertable",
                             val = nrow(check_certain_ind_best_not_conj) == 0))
 
-  # Figure 6 + 7, CP --------------------------------------------------------
+  # Figure 7 + 8, CP --------------------------------------------------------
   data.cp = data_cp_plots(params) 
   cp.relations = data.cp %>% filter(val=="relations")
-  # Figure 6
+  # Figure 8
   tikz(paste(plot_dir, "cp-evs-probs.tex", sep=fs), width = 7, height = 2.5, 
        standAlone = FALSE, packages = c("\\usepackage{tikz, amsmath, amssymb}"))
-  p.probs <- data.cp %>% filter(val=="p") %>% plot_cp_probs()
+  p.probs <- data.cp %>% filter(val=="p") %>%
+    filter(val_type != "P(C|A)") %>% 
+    plot_cp_probs()
   plot(p.probs)
   dev.off()
   
@@ -344,7 +346,7 @@ for(par_config in subdirs) {
   plot(p.relations)
   dev.off()
 
-  # Figure 8 ----------------------------------------------------------------
+  # Figure 9 ----------------------------------------------------------------
   cond_all = c("p_delta", "p_rooij", "p_diff")
   cond <- "p_rooij"
   
@@ -443,7 +445,7 @@ for(par_config in subdirs) {
   ratio.prior_neg = prior_vals %>% filter(condition < 0) %>% ungroup() %>% nrow() / (prior_vals  %>% nrow())
   df.csv <- bind_rows(df.csv, tibble(key="ratio_prior_accept_cond_neg", val = ratio.prior_neg))
   
-  # Figure 9 ----------------------------------------------------------------
+  # Figure 10 ----------------------------------------------------------------
   # speaker results for states from literal speaker condition where the 
   # speaker's best utterance is NOT A->C
   df.sp_lit_best_not_ifac = speaker.literal.best %>%

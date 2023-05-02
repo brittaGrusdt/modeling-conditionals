@@ -13,7 +13,8 @@ LABELS_R_TEX = c(
 )
 LABELS_cp_probs = c(
   "P(A|C)" = "$\\mathbb{E}[P^{(s)}(a\\mid c)]$", 
-  "P(-C|-A)" = "$\\mathbb{E}[P^{(s)}(\\neg c \\mid \\neg a)]$"
+  "P(-C|-A)" = "$\\mathbb{E}[P^{(s)}(\\neg c \\mid \\neg a)]$",
+  "P(C|A)" = "$\\mathbb{E}[P^{(s)}(c \\mid a)]$"
 )
 LABELS_r = c(
   "A implies C" = parse(text=TeX('$A^+C^+$')),
@@ -260,12 +261,14 @@ data_cp_plots <- function(params, data=NA){
   data.wide <- data %>%
     pivot_wider(names_from = "cell", values_from = "val") %>% 
     compute_cond_prob("P(-C|-A)", name_p = "-C_-A") %>% 
-    compute_cond_prob("P(A|C)", name_p = "A_C")
+    compute_cond_prob("P(A|C)", name_p = "A_C") %>% 
+    compute_cond_prob("P(C|A)", name_p = "C_A")
   
   # Expected values for P(-C|-A) and P(A|C) and for causal nets
   ev_nc_na = data.wide %>% rename(p=`-C_-A`) %>% expected_val("P(-C|-A)")
   ev_a_c = data.wide %>% rename(p=`A_C`) %>% expected_val("P(A|C)") 
-  ev_probs <- bind_rows(ev_a_c, ev_nc_na) %>%
+  ev_c_a = data.wide %>% rename(p=`C_A`) %>% expected_val("P(C|A)") 
+  ev_probs <- bind_rows(ev_a_c, ev_nc_na, ev_c_a) %>%
     mutate(level=factor(level, levels=c("PL", "LL", "prior"))) %>% 
     rename(val_type=p) %>% add_column(val="p")
   
