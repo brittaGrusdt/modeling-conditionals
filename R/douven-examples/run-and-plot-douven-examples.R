@@ -4,6 +4,7 @@ library(rwebppl)
 library(tidyverse)
 library(tikzDevice)
 library(RColorBrewer)
+library(ggpattern)
 source("R/helper-functions.R")
 source("R/helpers-webppl.R")
 

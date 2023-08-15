@@ -4,8 +4,7 @@ default:
   theta: !expr c(0.9)
   n_forward_samples: 10000
   seed_webppl: !expr as.numeric(Sys.time())
-  packages:  !expr c("./node_modules/conditionalsHelpers",
-                     "./node_modules/conditionalsDefault")
+  packages:  !expr c("conditionalsHelpers", "conditionalsDefault")
   save: true
   add_accept_conditions: true
   verbose: true
