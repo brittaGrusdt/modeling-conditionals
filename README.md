@@ -4,9 +4,6 @@ This repository contains all code and simulation data for our submission to S+P 
 
 ## Requirements
 * install [rwebppl](https://github.com/mhtess/rwebppl)
-* the folder model/webppl-packages contains two created webppl packages which need to be installed into your ~/.webppl folder:  
-  - 'npm install --prefix ~/.webppl model/webppl-packages/conditionalsHelpers'
-  - 'npm install --prefix ~/.webppl model/webppl-packages/conditionalsDefault'
 
 ## Running model
 All configuration data (parameters etc.) is stored in "config.yml".

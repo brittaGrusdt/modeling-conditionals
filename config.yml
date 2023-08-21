@@ -4,7 +4,10 @@ default:
   theta: !expr c(0.9)
   n_forward_samples: 10000
   seed_webppl: !expr as.numeric(Sys.time())
-  packages:  !expr c("conditionalsHelpers", "conditionalsDefault")
+  packages:  !expr c(paste("model", "webppl-packages", 
+                         "conditionalsHelpers", sep = .Platform$file.sep),
+                   paste("model", "webppl-packages", 
+                         "conditionalsDefault", sep = .Platform$file.sep))
   save: true
   add_accept_conditions: true
   verbose: true
